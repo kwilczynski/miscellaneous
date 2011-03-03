@@ -1,0 +1,14 @@
+#!/usr/bin/env xdg-open
+
+[Desktop Entry]
+Encoding=UTF-8
+Version=1.0
+Type=Application
+Terminal=false
+Icon[en_GB]=gnome-panel-launcher
+Name[en_GB]=Restore Windows
+Exec=xterm -e restore_windows.rb &> /dev/null
+Comment[en_GB]=Restore all minimised windows ...
+Name=Restore Windows
+Comment=Restore all minimised windows ...
+Icon=gnome-panel-launcher
