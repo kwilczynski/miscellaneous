@@ -3,8 +3,8 @@
 #
 # This script will attempt to restore all minimised windows ...
 #
-# You can make it a desktop icon or Gnome Panel launcher or
-# bind it to a particular keyboard short-cut etc.  Whatever works for you.
+# You can make it a desktop icon or Gnome Panel launcher or bind it to a
+# particular keyboard short-cut etc.  Whatever works for you.
 #
 # General usefulness of this script is rather low ...
 #
@@ -20,7 +20,7 @@ exit(1) unless File.exists?(WM_CTRL_BINARY) and File.exists?(XPROP_BINARY)
 
 result = %x{ #{WM_CTRL_BINARY} -l }
 result.each do |i|
-  if match = i.match(/(0x.+?)\s+0/)
+  if match = i.match(/(0x.+?)\s+\d+/)
     window = match[1].strip
     result = %x{ #{XPROP_BINARY} -id #{window} #{WINDOW_STATE_ATOM} }
     if result.match(/#{WINDOW_STATE_PROPERTY}/)
