@@ -7,8 +7,8 @@
 #
 # For example:
 #
-#  $ ruby device_name.rb /etc/resolv.conf 
-#  /dev/rdisk0s2
+#   $ device_name.rb /etc/resolv.conf
+#   /dev/rdisk0s2
 #
 
 class File::Stat

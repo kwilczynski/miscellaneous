@@ -1,6 +1,8 @@
 #!/usr/bin/env ruby
 
 #
+# restore_windows.rb
+#
 # This script will attempt to restore all minimised windows ...
 #
 # You can make it a desktop icon or Gnome Panel launcher or bind it to a

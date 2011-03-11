@@ -1,6 +1,8 @@
 #!/usr/bin/env ruby
 
 #
+# restore_windows_current_only.rb
+#
 # This script will attempt to restore all minimised windows on the desktop
 # which is currently active if you have more than one virtual desktop ...
 #
