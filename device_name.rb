@@ -16,8 +16,8 @@ class File::Stat
     Dir['/dev/*'].inject({}) { |h, v|
       h.update(File.stat(v).rdev => v)
     }.values_at(File.stat(file).dev).first || nil
-  end
-end
+  end # def self.device_name
+end # class File::Stat
 
 def die(message); puts message unless message.empty?; exit(1); end
 
@@ -39,7 +39,7 @@ Usage:
   EOS
 
   exit(1)
-end
+end # def print_usage
 
 if $0 == __FILE__
   $stdout.sync = true
