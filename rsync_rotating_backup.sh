@@ -13,15 +13,21 @@ BACKUP_DESTINATION=""
 
 LOCK_FILE="/tmp/${0}.lock"
 
+if [[ ! -e "/proc/$( cat "${LOCK_FILE}" 2> /dev/null )" ]] ; then
+    rm -f "${LOCK_FILE}"
+fi
+
 if ( set -o noclobber ; echo ${$} > "${LOCK_FILE}" ) &> /dev/null ; then
 
     trap 'rm -f "${LOCK_FILE}"' INT TERM EXIT
 
     if [ "$( ls -A "${BACKUP_SOURCE}" )" ] ; then
 
+        mkdir -p "${BACKUP_DESTINATION}" &> /dev/null
+
         pushd "${BACKUP_DESTINATION}" &> /dev/null
 
-        mkdir -p "backup."{0..5}
+        mkdir -p backup.{0..5} &> /dev/null
 
         rm -r -f "backup.5"
 
