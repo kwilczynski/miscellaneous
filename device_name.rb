@@ -12,14 +12,21 @@
 #
 
 class File::Stat
-  def self.device_name(file)
-    Dir['/dev/*'].inject({}) { |h, v|
-      h.update(File.stat(v).rdev => v)
-    }.values_at(File.stat(file).dev).first || nil
-  end # def self.device_name
-end # class File::Stat
+  class << self
+    def device_name(file)
+      Dir['/dev/*'].inject({}) { |h, v|
+        h.update(File.stat(v).rdev => v)
+      }.values_at(File.stat(file).dev).first || nil
+    end
+  end
+end
 
-def die(message); puts message unless message.empty?; exit(1); end
+def die(message, exit_code=1, with_new_line=false)
+  if message and not message.empty?
+    STDERR.print message + (with_new_line ? "\n" : '')
+  end
+  exit(exit_code)
+end
 
 def print_usage()
   puts <<-EOS
@@ -39,10 +46,12 @@ Usage:
   EOS
 
   exit(1)
-end # def print_usage
+end
 
 if $0 == __FILE__
-  $stdout.sync = true
+
+  STDOUT.sync = true
+  STDERR.sync = true
 
   print_usage() if ARGV.size < 1 or ARGV.first == '-'
 
