@@ -33,10 +33,13 @@ end
 
 # Second step is to restore all minimised windows on current desktop only ...
 result = %x{ #{WM_CTRL_BINARY} -l }
+
 result.each do |i|
   if match = i.match(/(0x.+?)\s+#{current_desktop}/)
     window = match[1].strip
+
     result = %x{ #{XPROP_BINARY} -id #{window} #{WINDOW_STATE_ATOM} }
+
     if result.match(/#{WINDOW_STATE_PROPERTY}/)
       %x{ #{WM_CTRL_BINARY} -i -a #{window} &> /dev/null }
     end
@@ -44,3 +47,4 @@ result.each do |i|
 end
 
 exit(0)
+
