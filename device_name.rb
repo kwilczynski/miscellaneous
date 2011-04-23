@@ -80,7 +80,6 @@ if $0 == __FILE__
   if device = File::Stat.device_name(file)
     puts (verbose ? "File `#{file}' underlying " +
       "device is `#{device}'." : "#{device}")
-
   else
     die(verbose ? "Unable to locate an underlying " +
       "device for file `#{file}' ..." : '')
