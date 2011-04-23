@@ -5,8 +5,8 @@
 # backup script.  Designed to run as a cron job at @reboot ...
 #
 
-RESTORE_SOURCE="/tmp/a/"
-RESTORE_DESTINATION="/tmp/b/"
+RESTORE_SOURCE=""
+RESTORE_DESTINATION=""
 
 LOCK_FILE="/tmp/$0.lock"
 
