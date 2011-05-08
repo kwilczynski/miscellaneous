@@ -13,6 +13,11 @@ BACKUP_DESTINATION=""
 
 LOCK_FILE="/tmp/$0.lock"
 
+function die {
+    logger -i -t "$( basename "${0}" )" "$@"
+    exit 1
+}
+
 if [[ ! -e "/proc/$( cat "${LOCK_FILE}" 2> /dev/null )" ]] ; then
     rm -f "${LOCK_FILE}"
 fi
@@ -35,16 +40,14 @@ if ( set -o noclobber ; echo $$ > "${LOCK_FILE}" ) &> /dev/null ; then
 
             mv -f "backup.$[ ${i} - 1 ]" "backup.${i}" &> /dev/null ||
             {
-                echo "Unable to successfully rotate backup ..." 1>&2
-                exit 1
+                die "Unable to successfully rotate backup ..."
             }
         done
 
         rsync -a -r -q --delete --link-dest="../backup.1" \
             "${BACKUP_SOURCE}" "backup.0/" &> /dev/null ||
         {
-            echo "Unable to make backup files successfully ..." 1>&2
-            exit 1
+            die "Unable to make backup files successfully ..."
         }
 
         popd &> /dev/null

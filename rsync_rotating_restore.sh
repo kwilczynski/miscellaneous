@@ -10,6 +10,11 @@ RESTORE_DESTINATION=""
 
 LOCK_FILE="/tmp/$0.lock"
 
+function die {
+    logger -i -t "$( basename "${0}" )" "$@"
+    exit 1
+}
+
 if [[ ! -e "/proc/$( cat "${LOCK_FILE}" 2> /dev/null )" ]] ; then
     rm -f "${LOCK_FILE}"
 fi
@@ -26,15 +31,13 @@ if ( set -o noclobber ; echo $$ > "${LOCK_FILE}" ) &> /dev/null ; then
 
         rsync -a -r -q "backup.0/" "${RESTORE_DESTINATION}" &> /dev/null ||
         {
-            echo "Unable to restore files from backup successfully ..."
-            exit 1
+            die "Unable to restore files from backup successfully ..."
         }
 
         popd &> /dev/null
 
     else
-        echo "Backup directory is empty. Unable to restore backup ..."
-        exit 1
+        die "Backup directory is empty. Unable to restore backup ..."
     fi
 
     rm -f "${LOCK_FILE}"
