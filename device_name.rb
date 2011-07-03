@@ -21,7 +21,7 @@ class File::Stat
   end
 end
 
-def die(message, exit_code=1, with_new_line=false)
+def die(message, exit_code=1, with_new_line=true)
   if message and not message.empty?
     STDERR.print message + (with_new_line ? "\n" : '')
   end
@@ -73,16 +73,12 @@ if $0 == __FILE__
 
   print_usage() unless file
 
-  unless File.exists?(file)
-    die(verbose ? "File `#{file}' does not exists ..." : '')
-  end
+  die(verbose ? "File #{file} does not exists ..." : '') unless File.exists?(file)
 
   if device = File::Stat.device_name(file)
-    puts (verbose ? "File `#{file}' underlying " +
-      "device is `#{device}'." : "#{device}")
+    puts (verbose ? "File #{file} has underlying device #{device}" : "#{device}")
   else
-    die(verbose ? "Unable to locate an underlying " +
-      "device for file `#{file}' ..." : '')
+    die(verbose ? "Unable to locate underlying device for file #{file} ..." : '')
   end
 end
 
