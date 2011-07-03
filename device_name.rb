@@ -28,7 +28,7 @@ def die(message, exit_code=1, with_new_line=false)
   exit(exit_code)
 end
 
-def print_usage()
+def print_usage
   puts <<-EOS
 
 Usage:
@@ -45,7 +45,7 @@ Usage:
 
   EOS
 
-  exit(1)
+  exit 1
 end
 
 if $0 == __FILE__
@@ -53,7 +53,7 @@ if $0 == __FILE__
   STDOUT.sync = true
   STDERR.sync = true
 
-  print_usage() if ARGV.size < 1 or ARGV.first == '-'
+  print_usage if ARGV.size < 1 or ARGV.first == '-'
 
   file    = ''
   verbose = false
@@ -84,8 +84,6 @@ if $0 == __FILE__
     die(verbose ? "Unable to locate an underlying " +
       "device for file `#{file}' ..." : '')
   end
-
-  exit(0)
 end
 
 # vim: set ts=2 sw=2 et :
