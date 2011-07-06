@@ -20,10 +20,11 @@ WINDOW_STATE_PROPERTY = '_NET_WM_STATE_HIDDEN'
 # We need to have these two to be able to do the job ...
 exit(1) unless File.exists?(WM_CTRL_BINARY) and File.exists?(XPROP_BINARY)
 
-result = %x{ #{WM_CTRL_BINARY} -l }
+%x{ #{WM_CTRL_BINARY} -l }.each do |l|
+  # Remove bloat ...
+  l.strip!
 
-result.each do |i|
-  if match = i.match(/(0x.+?)\s+\d+/)
+  if match = l.match(/(0x.+?)\s+\d+/)
     window = match[1].strip
 
     result = %x{ #{XPROP_BINARY} -id #{window} #{WINDOW_STATE_ATOM} }
@@ -34,5 +35,4 @@ result.each do |i|
   end
 end
 
-exit(0)
-
+# vim: set ts=2 sw=2 et :

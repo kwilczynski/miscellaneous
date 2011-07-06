@@ -24,18 +24,21 @@ exit(1) unless File.exists?(WM_CTRL_BINARY) and File.exists?(XPROP_BINARY)
 current_desktop = 0 # We assume that first desktop is the current one ...
 
 # First step is to detect current desktop ...
-result = %x{ #{WM_CTRL_BINARY} -d }
-result.each do |i|
-  if match = i.match(/^(\d+)\s+\*\s/)
+%x{ #{WM_CTRL_BINARY} -d }.each do |l|
+  # Remove bloat ...
+  l.strip!
+
+  if match = l.match(/^(\d+)\s+\*\s/)
     current_desktop = match[1].strip
   end
 end
 
 # Second step is to restore all minimised windows on current desktop only ...
-result = %x{ #{WM_CTRL_BINARY} -l }
+%x{ #{WM_CTRL_BINARY} -l }.each do |l|
+  # Remove bloat ...
+  l.strip!
 
-result.each do |i|
-  if match = i.match(/(0x.+?)\s+#{current_desktop}/)
+  if match = l.match(/(0x.+?)\s+#{current_desktop}/)
     window = match[1].strip
 
     result = %x{ #{XPROP_BINARY} -id #{window} #{WINDOW_STATE_ATOM} }
@@ -46,5 +49,4 @@ result.each do |i|
   end
 end
 
-exit(0)
-
+# vim: set ts=2 sw=2 et :

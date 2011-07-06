@@ -14,9 +14,9 @@
 class File::Stat
   class << self
     def device_name(file)
-      Dir['/dev/*'].inject({}) { |h, v|
+      Dir['/dev/*'].inject({}) { |h,v|
         h.update(File.stat(v).rdev => v)
-      }.values_at(File.stat(file).dev).first || nil
+      }.values_at(File.stat(file).dev).shift
     end
   end
 end
@@ -25,6 +25,7 @@ def die(message, exit_code=1, with_new_line=true)
   if message and not message.empty?
     STDERR.print message + (with_new_line ? "\n" : '')
   end
+
   exit(exit_code)
 end
 
@@ -71,14 +72,14 @@ if $0 == __FILE__
       file = option
   end
 
-  print_usage() unless file
+  print_usage unless file
 
-  die(verbose ? "File #{file} does not exists ..." : '') unless File.exists?(file)
+  die(verbose ? "#{file} does not exists ..." : '') unless File.exists?(file)
 
   if device = File::Stat.device_name(file)
-    puts (verbose ? "File #{file} has underlying device #{device}" : "#{device}")
+    puts (verbose ? "#{file} has underlying device #{device}" : "#{device}")
   else
-    die(verbose ? "Unable to locate underlying device for file #{file} ..." : '')
+    die(verbose ? "Unable to locate underlying device for #{file} ..." : '')
   end
 end
 
