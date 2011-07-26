@@ -19,7 +19,7 @@
 require 'getoptlong'
 
 IPTABLES_SAVE_BINARY      = '/sbin/iptables-save'
-IPTABLES_SUPPORTED_TABLES = %w(filter nat mangle raw)
+IPTABLES_SUPPORTED_TABLES = %w( filter nat mangle raw )
 IPTABLES_COUNTERS_PATTERN = '^:(.+)\s\[\d+:\d+\]'
 
 def die(message, exit_code=1, with_new_line=true)
@@ -104,7 +104,7 @@ if $0 == __FILE__
       line.strip!
 
       # Skip new lines, empty lines and comment lines ...
-      next if line.match(/\r\n|\n|^$|^#/) and clear_output
+      next if line.match(/^(\r\n|\n|\s*|#.*)$|^$/) and clear_output
 
       # When line matches pattern for counters and we decide to zero them ...
       if match = line.match(IPTABLES_COUNTERS_PATTERN) and clear_counters
