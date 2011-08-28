@@ -12,9 +12,9 @@ _mco()
 	if [[ ${COMP_CWORD} == 1 ]] && [[ "${current}" != -* ]] ; then
 
 		COMPREPLY=( ${COMPREPLY[@]} \
-		  "$( mco 2> /dev/null | \
-		   grep -i 'commands' | cut -d ':' -f 2 | \
-		   sed 's/^[ \t]*//;s/[ \t]*$//' | sort -u )" )
+			    "$( mco 2> /dev/null | \
+			    grep -i 'commands' | cut -d ':' -f 2 | \
+			    sed 's/^[ \t]*//;s/[ \t]*$//' | sort -u )" )
 
 		COMPREPLY=( $(compgen -W '${COMPREPLY[@]}' -- "${current}") )
 
