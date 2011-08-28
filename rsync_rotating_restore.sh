@@ -1,6 +1,8 @@
 #!/bin/bash
 
 #
+# rsync_rotating_restore.sh
+#
 # This script will restore backup created by rsync rotating
 # backup script.  Designed to run as a cron job at @reboot ...
 #

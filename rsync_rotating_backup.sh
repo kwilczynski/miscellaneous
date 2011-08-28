@@ -1,6 +1,8 @@
 #!/bin/bash
 
 #
+# rsync_rotating_backup.sh
+#
 # This script will create a rotaring backup using rsync and store
 # up to 5 copies.  We are using --link-dest option for rsync to
 # create hard links to previous rotation so we preserve space and
