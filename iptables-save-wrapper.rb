@@ -67,6 +67,8 @@ if $0 == __FILE__
     die "#{$0}: #{IPTABLES_SAVE_BINARY} does not exists ..."
   end
 
+  print_usage if ARGV.first == '-'
+
   # To clear or not to clear ...
   clear_counters = false
 
