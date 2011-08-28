@@ -2,41 +2,41 @@
 
 _mco()
 {
-        local current
+	local current
 
-        COMPREPLY=()
+	COMPREPLY=()
 
-        current=$( _get_cword )
-        current=${current//\\\\/}
+	current=$( _get_cword )
+	current=${current//\\\\/}
 
-        if [[ ${COMP_CWORD} == 1 ]] && [[ "${current}" != -* ]] ; then
+	if [[ ${COMP_CWORD} == 1 ]] && [[ "${current}" != -* ]] ; then
 
-                COMPREPLY=( ${COMPREPLY[@]} \
-                  "$( mco 2> /dev/null | \
-                   grep -i 'commands' | cut -d ':' -f 2 | \
-                   sed 's/^[ \t]*//;s/[ \t]*$//' | sort -u )" )
+		COMPREPLY=( ${COMPREPLY[@]} \
+		  "$( mco 2> /dev/null | \
+		   grep -i 'commands' | cut -d ':' -f 2 | \
+		   sed 's/^[ \t]*//;s/[ \t]*$//' | sort -u )" )
 
-                COMPREPLY=( $(compgen -W '${COMPREPLY[@]}' -- "${current}") )
+		COMPREPLY=( $(compgen -W '${COMPREPLY[@]}' -- "${current}") )
 
-        elif [[ ${COMP_CWORD} > 1 ]] && [[ "${current}" == -* ]] ; then
+	elif [[ ${COMP_CWORD} > 1 ]] && [[ "${current}" == -* ]] ; then
 
-                COMPREPLY=( ${COMPREPLY[@]} \
-                  "-1 -A -c -C -F -h -I -q -t -T -v -W \
-                  --dt --ln --np --wa --wc --wf --wi \
-                  --config --help --one --quiet --target --timeout --verbose --with \
-                  --discovery-timeout --limit-nodes --no-progress \
-                  --with-agent --with-class --with-fact --with-identity" )
+		COMPREPLY=( ${COMPREPLY[@]} \
+			    "-1 -A -c -C -F -h -I -q -t -T -v -W \
+			    --dt --ln --np --wa --wc --wf --wi \
+			    --config --help --one --quiet --target --timeout --verbose --with \
+			    --discovery-timeout --limit-nodes --no-progress \
+			    --with-agent --with-class --with-fact --with-identity" )
 
-                COMPREPLY=( $(compgen -W '${COMPREPLY[@]}' -- "${current}") )
+		COMPREPLY=( $(compgen -W '${COMPREPLY[@]}' -- "${current}") )
 
-        else
-                _filedir || return 0
-        fi
+	else
+		_filedir || return 0
+	fi
 
-        return 0
+	return 0
 }
 
 complete -F _mco $default mco
 
 # -*- mode: shell-script; sh-basic-offset: 8; indent-tabs-mode: t -*-
-# vim: set ts=8 sw=8 noet ff=sh :
+# vim: set ts=8 sw=8 noet ft=sh ff=unix :
