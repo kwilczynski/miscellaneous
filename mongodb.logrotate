@@ -8,12 +8,12 @@
 	compress
 	sharedscripts
 	postrotate
-	  MONGOD_LOCK='/var/lib/mongodb/mongod.lock'
-	  MONGOD_LOG_FILES='/var/log/mongodb/mongodb.log.????-??-??T??-??-??'
+		MONGOD_LOCK='/var/lib/mongodb/mongod.lock'
+		MONGOD_LOG_FILES='/var/log/mongodb/mongodb.log.????-??-??T??-??-??'
 
-	  [ -x $MONGOD_LOCK ] || exit 0
+		[[ -x $MONGOD_LOCK ]] || exit 0
 
-	  /bin/kill -SIGUSR1 $( /bin/cat $MONGOD_LOCK 2> /dev/null ) 2> /dev/null || true
-	  /bin/rm -f $MONGOD_LOG_FILES
+		/bin/kill -SIGUSR1 $( /bin/cat $MONGOD_LOCK 2> /dev/null ) 2> /dev/null || true
+		/bin/rm -f $MONGOD_LOG_FILES
 	endscript
 }
