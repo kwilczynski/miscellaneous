@@ -16,7 +16,8 @@ MONGO_BINARY='/usr/bin/mongo'
 result=$( netstat -n -l -t 2> /dev/null | \
           grep -i '^tcp' | \
           awk '{ print $4 }' | \
-          grep ':27017' )
+          grep ':27017' | \
+          grep -v '^127\.' )
 
 # Abort is no results are present ...  Perhaps MongoDB is not running?
 [[ -z $result ]] && exit 1
