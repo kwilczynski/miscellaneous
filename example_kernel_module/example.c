@@ -1,8 +1,10 @@
+#define KMSG_COMPONENT "example"
+#define pr_fmt(fmt) KMSG_COMPONENT ": " fmt
+
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/init.h>
 
-#define NAME_PREFIX "example: "
 #define MAX_NUMBERS 4
 
 static int number = 0;
@@ -24,16 +26,14 @@ static int __init example_init(void)
 {
 	int i;
 
-	printk(KERN_INFO NAME_PREFIX "module loaded.\n");
-	printk(KERN_INFO NAME_PREFIX "number = %d\n", number);
+	pr_notice("module loaded.\n");
+	pr_info("number = %d\n", number);
 	
 	if (numbers_count > 0) {
-		printk(KERN_INFO NAME_PREFIX "numbers (count = %d):\n",
-			numbers_count);
+		pr_info("numbers (count = %d):\n", numbers_count);
 
 		for (i = 0; i < numbers_count; i++) {
-			printk(KERN_INFO NAME_PREFIX "numbers[%d] = %d\n",
-			i, numbers[i]);
+			pr_info("numbers[%d] = %d\n", i, numbers[i]);
 		}
 	}
 	
@@ -42,7 +42,7 @@ static int __init example_init(void)
 
 static void __exit example_exit(void)
 {
-	printk(KERN_INFO NAME_PREFIX "module unloaded.\n");
+	pr_notice("module unloaded.\n");
 
 	return;
 }
