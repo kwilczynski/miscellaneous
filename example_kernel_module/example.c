@@ -16,10 +16,10 @@ MODULE_AUTHOR("Krzysztof Wilczynski <krzysztof.wilczynski@linux.com>");
 MODULE_DESCRIPTION("Example Kernel module with two types of parameters");
 MODULE_LICENSE("GPL");
 
-module_param(number, int, 0400);
+module_param(number, int, 0444);
 MODULE_PARM_DESC(number, "A numeric value");
 
-module_param_array(numbers, int, &numbers_count, 0400);
+module_param_array(numbers, int, &numbers_count, 0444);
 MODULE_PARM_DESC(numbers, "A set of numeric values");
 
 static int __init example_init(void)
