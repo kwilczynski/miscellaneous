@@ -49,10 +49,10 @@
 
 
 /*
- * List of ports (up to IP_VS_APP_MAX_PORTS) to be handled by helper
+ * List of ports (up to IP_VS_APP_MAX_PORTS) to be handled by helper.
  * First port is set to the default port.
  */
-static unsigned int ports_count = 0;
+static unsigned int ports_count = 1;
 static unsigned short ports[IP_VS_APP_MAX_PORTS] = {21, 0};
 
 module_param_array(ports, ushort, &ports_count, 0444);
@@ -410,18 +410,19 @@ static int __init ip_vs_ftp_init(void)
 	struct ip_vs_app *app = &ip_vs_ftp;
 
 	ret = register_ip_vs_app(app);
+
 	if (ret)
 		return ret;
 
-	if (!ports_count)
-		ports_count = 1;
-
-	for (i=0; i<ports_count; i++) {
+	for (i = 0; i < ports_count; i++) {
 		if (!ports[i])
 			continue;
+
 		ret = register_ip_vs_app_inc(app, app->protocol, ports[i]);
+
 		if (ret)
 			break;
+
 		pr_info("%s: loaded support on port[%d] = %d\n",
 			app->name, i, ports[i]);
 	}
