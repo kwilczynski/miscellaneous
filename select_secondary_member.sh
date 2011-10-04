@@ -8,7 +8,7 @@
 
 function select_secondary_member {
   # We will use indirect-reference hack to return variable from this function.
-  __return=$1
+  local __return=$1
 
   secondary=''
 
@@ -65,7 +65,7 @@ fi
 select_secondary_member seconday
 
 if [[ -n "$secondary" ]] ; then
-  echo "Available Replica Sets secondary: ${secondary}"
+  echo "Available Replica Sets secondary: $secondary"
 else
   exit $?
 fi
