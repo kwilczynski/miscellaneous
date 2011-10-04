@@ -10,29 +10,33 @@
 # between them will be stored.  Designed to run as a cron job ...
 #
 
-BACKUP_SOURCE=""
-BACKUP_DESTINATION=""
+BACKUP_SOURCE=''
+BACKUP_DESTINATION=''
 
-LOCK_FILE="/tmp/$0.lock"
+LOCK_FILE="/var/lock/$0.lock"
+
+function notice {
+    logger -t "$( basename "$0" )" "[$$]: $( date -R ) $@"
+}
 
 function die {
-    logger -i -t "$( basename "${0}" )" "$@"
+    logger -t "$( basename "$0" )" "[$$]: $( date -R ) ERROR: $@"
     exit 1
 }
 
-if [[ ! -e "/proc/$( cat "${LOCK_FILE}" 2> /dev/null )" ]] ; then
-    rm -f "${LOCK_FILE}"
+if [[ ! -e "/proc/$( cat "$LOCK_FILE" 2> /dev/null )" ]] ; then
+    rm -f "$LOCK_FILE"
 fi
 
-if ( set -o noclobber ; echo $$ > "${LOCK_FILE}" ) &> /dev/null ; then
+if ( set -o noclobber ; echo $$ > "$LOCK_FILE" ) &> /dev/null ; then
 
-    trap 'rm -f "${LOCK_FILE}"' INT TERM EXIT
+    trap 'rm -f "$LOCK_FILE"' INT TERM EXIT
 
-    if [ "$( ls -A "${BACKUP_SOURCE}" )" ] ; then
+    if [ "$( ls -A "$BACKUP_SOURCE" )" ] ; then
 
-        mkdir -p "${BACKUP_DESTINATION}" &> /dev/null
+        mkdir -p "$BACKUP_DESTINATION" &> /dev/null
 
-        pushd "${BACKUP_DESTINATION}" &> /dev/null
+        pushd "$BACKUP_DESTINATION" &> /dev/null
 
         mkdir -p backup.{0..5} &> /dev/null
 
@@ -40,14 +44,14 @@ if ( set -o noclobber ; echo $$ > "${LOCK_FILE}" ) &> /dev/null ; then
 
         for i in {5..1} ; do
 
-            mv -f "backup.$[ ${i} - 1 ]" "backup.${i}" &> /dev/null ||
+            mv -f "backup.$[ $i - 1 ]" "backup.${i}" &> /dev/null ||
             {
                 die "Unable to successfully rotate backup ..."
             }
         done
 
         rsync -a -r -q --delete --link-dest="../backup.1" \
-            "${BACKUP_SOURCE}" "backup.0/" &> /dev/null ||
+            "$BACKUP_SOURCE" "backup.0/" &> /dev/null ||
         {
             die "Unable to make backup files successfully ..."
         }
@@ -55,7 +59,7 @@ if ( set -o noclobber ; echo $$ > "${LOCK_FILE}" ) &> /dev/null ; then
         popd &> /dev/null
     fi
 
-    rm -f "${LOCK_FILE}"
+    rm -f "$LOCK_FILE"
 
     trap - INT TERM EXIT
 fi

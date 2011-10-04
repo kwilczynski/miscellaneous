@@ -7,31 +7,35 @@
 # backup script.  Designed to run as a cron job at @reboot ...
 #
 
-RESTORE_SOURCE=""
-RESTORE_DESTINATION=""
+RESTORE_SOURCE=''
+RESTORE_DESTINATION=''
 
-LOCK_FILE="/tmp/$0.lock"
+LOCK_FILE="/var/lock/$0.lock"
+
+function notice {
+    logger -t "$( basename "$0" )" "[$$]: $( date -R ) $@"
+}
 
 function die {
-    logger -i -t "$( basename "${0}" )" "$@"
+    logger -t "$( basename "$0" )" "[$$]: $( date -R ) ERROR: $@"
     exit 1
 }
 
-if [[ ! -e "/proc/$( cat "${LOCK_FILE}" 2> /dev/null )" ]] ; then
-    rm -f "${LOCK_FILE}"
+if [[ ! -e "/proc/$( cat "$LOCK_FILE" 2> /dev/null )" ]] ; then
+    rm -f "$LOCK_FILE"
 fi
 
-if ( set -o noclobber ; echo $$ > "${LOCK_FILE}" ) &> /dev/null ; then
+if ( set -o noclobber ; echo $$ > "$LOCK_FILE" ) &> /dev/null ; then
 
-    trap 'rm -f "${LOCK_FILE}"' INT TERM EXIT
+    trap 'rm -f "$LOCK_FILE"' INT TERM EXIT
 
-    if [ "$( ls -A "${RESTORE_SOURCE}" )" ] ; then
+    if [ "$( ls -A "$RESTORE_SOURCE" )" ] ; then
 
-        mkdir -p "${RESTORE_DESTINATION}" &> /dev/null
+        mkdir -p "$RESTORE_DESTINATION" &> /dev/null
 
-        pushd "${RESTORE_SOURCE}" &> /dev/null
+        pushd "$RESTORE_SOURCE" &> /dev/null
 
-        rsync -a -r -q "backup.0/" "${RESTORE_DESTINATION}" &> /dev/null ||
+        rsync -a -r -q "backup.0/" "$RESTORE_DESTINATION" &> /dev/null ||
         {
             die "Unable to restore files from backup successfully ..."
         }
@@ -42,7 +46,7 @@ if ( set -o noclobber ; echo $$ > "${LOCK_FILE}" ) &> /dev/null ; then
         die "Backup directory is empty. Unable to restore backup ..."
     fi
 
-    rm -f "${LOCK_FILE}"
+    rm -f "$LOCK_FILE"
 
     trap - INT TERM EXIT
 fi
