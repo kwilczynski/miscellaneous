@@ -13,26 +13,20 @@
 BACKUP_SOURCE=''
 BACKUP_DESTINATION=''
 
-LOCK_FILE="/var/lock/$0.lock"
-
-function notice {
-    logger -t "$( basename "$0" )" "[$$]: $( date -R ) $@"
-}
+LOCK_FILE="/var/lock/$(basename -- "$0").lock"
 
 function die {
-    logger -t "$( basename "$0" )" "[$$]: $( date -R ) ERROR: $@"
+    logger "$(basename -- "$0") [$$]: $(date -R) ERROR: $@"
     exit 1
 }
 
-if [[ ! -e "/proc/$( cat "$LOCK_FILE" 2> /dev/null )" ]] ; then
-    rm -f "$LOCK_FILE"
-fi
+[[ -e "/proc/$(cat "$LOCK_FILE" 2> /dev/null)" ]] || rm -f "$LOCK_FILE"
 
-if ( set -o noclobber ; echo $$ > "$LOCK_FILE" ) &> /dev/null ; then
+if (set -o noclobber ; echo $$ > "$LOCK_FILE") &> /dev/null ; then
 
     trap 'rm -f "$LOCK_FILE"' INT TERM EXIT
 
-    if [ "$( ls -A "$BACKUP_SOURCE" )" ] ; then
+    if [ "$(ls -A "$BACKUP_SOURCE")" ] ; then
 
         mkdir -p "$BACKUP_DESTINATION" &> /dev/null
 
@@ -40,20 +34,20 @@ if ( set -o noclobber ; echo $$ > "$LOCK_FILE" ) &> /dev/null ; then
 
         mkdir -p backup.{0..5} &> /dev/null
 
-        rm -r -f "backup.5"
+        rm -r -f 'backup.5'
 
         for i in {5..1} ; do
 
-            mv -f "backup.$[ $i - 1 ]" "backup.${i}" &> /dev/null ||
+            mv -f "backup.$[$i - 1]" "backup.${i}" &> /dev/null ||
             {
-                die "Unable to successfully rotate backup ..."
+                die 'Unable to successfully rotate backup ...'
             }
         done
 
-        rsync -a -r -q --delete --link-dest="../backup.1" \
-            "$BACKUP_SOURCE" "backup.0/" &> /dev/null ||
+        rsync -a -r -q --delete --link-dest='../backup.1' \
+            "$BACKUP_SOURCE" 'backup.0/' &> /dev/null ||
         {
-            die "Unable to make backup files successfully ..."
+            die 'Unable to make backup files successfully ...'
         }
 
         popd &> /dev/null

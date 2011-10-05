@@ -10,40 +10,34 @@
 RESTORE_SOURCE=''
 RESTORE_DESTINATION=''
 
-LOCK_FILE="/var/lock/$0.lock"
-
-function notice {
-    logger -t "$( basename "$0" )" "[$$]: $( date -R ) $@"
-}
+LOCK_FILE="/var/lock/$(basename -- "$0").lock"
 
 function die {
-    logger -t "$( basename "$0" )" "[$$]: $( date -R ) ERROR: $@"
+    logger "$(basename -- "$0") [$$]: $(date -R) ERROR: $@"
     exit 1
 }
 
-if [[ ! -e "/proc/$( cat "$LOCK_FILE" 2> /dev/null )" ]] ; then
-    rm -f "$LOCK_FILE"
-fi
+[[ -e "/proc/$(cat "$LOCK_FILE" 2> /dev/null)" ]] || rm -f "$LOCK_FILE"
 
-if ( set -o noclobber ; echo $$ > "$LOCK_FILE" ) &> /dev/null ; then
+if (set -o noclobber ; echo $$ > "$LOCK_FILE") &> /dev/null ; then
 
     trap 'rm -f "$LOCK_FILE"' INT TERM EXIT
 
-    if [ "$( ls -A "$RESTORE_SOURCE" )" ] ; then
+    if [ "$(ls -A "$RESTORE_SOURCE")" ] ; then
 
         mkdir -p "$RESTORE_DESTINATION" &> /dev/null
 
         pushd "$RESTORE_SOURCE" &> /dev/null
 
-        rsync -a -r -q "backup.0/" "$RESTORE_DESTINATION" &> /dev/null ||
+        rsync -a -r -q 'backup.0/' "$RESTORE_DESTINATION" &> /dev/null ||
         {
-            die "Unable to restore files from backup successfully ..."
+            die 'Unable to restore files from backup successfully ...'
         }
 
         popd &> /dev/null
 
     else
-        die "Backup directory is empty. Unable to restore backup ..."
+        die 'Backup directory is empty. Unable to restore backup ...'
     fi
 
     rm -f "$LOCK_FILE"
