@@ -19,12 +19,19 @@ result=$(netstat -n -l -t 2> /dev/null | \
          grep ':27017' |                 \
          grep -v '^127\.')
 
-# Abort is no results are present.  Perhaps MongoDB is not running?
-[ -z "$result" ] && exit 1
+# Fall-back to localhost if no other results are present ...
+[ -z "$result" ] && result='127.0.0.1:27017'
 
 # Get the host and port number ...
 host="${result%%:*}"
 port="${result##*:}"
 
 # Start the mongo shell and pass any additional command line arguments to it ...
-${MONGO_BINARY} --host "$host" --port "$port" "$@"
+$MONGO_BINARY --quiet --host "$host" --port "$port" "$@"
+
+if [[ ! $? == 0 ]] ; then
+    echo "ERROR: Unable to connect any MongoDB instance ..." >&2
+    exit 1
+fi
+
+exit 0
