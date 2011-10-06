@@ -3,8 +3,8 @@
 #
 # mongodb_select_secondary_member.sh
 #
-# Select first available Secondary member in the Replica Sets and show its
-# host name and port.
+# This script will select first available Secondary member in the Replica Sets
+# and show its host name and port.
 #
 
 function select_secondary_member {
