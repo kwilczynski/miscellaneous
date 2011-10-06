@@ -17,7 +17,7 @@ function die {
     exit 1
 }
 
-[[ -e "/proc/$(cat "$LOCK_FILE" 2> /dev/null)" ]] || rm -f "$LOCK_FILE"
+[ -e "/proc/$(cat "$LOCK_FILE" 2> /dev/null)" ] || rm -f "$LOCK_FILE"
 
 if (set -o noclobber ; echo $$ > "$LOCK_FILE") &> /dev/null ; then
 

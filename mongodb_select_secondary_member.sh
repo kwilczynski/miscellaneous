@@ -15,16 +15,16 @@ function select_secondary_member {
   members=( $(mongo --quiet --eval \
               'rs.isMaster().hosts.forEach(function(x) { print(x) })' 2> /dev/null) )
 
-  if [ ! $? == 0 ] ; then
+  if [[ ! $? == 0 ]] ; then
     echo "ERROR: Unable to retrieve list of Replica Sets members from local MongoDB instance." >&2
     return 1
   else
     # Process list of Replica Sets members and look for any Secondary ...
-    if [[ ${#members[@]} > 1 ]] ; then
+    if (( ${#members[@]} > 1 )) ; then
       for member in "${members[@]}" ; do
         master_status="$(mongo --quiet --host $member --eval 'rs.isMaster().ismaster' 2> /dev/null)"
 
-        if [ ! $? == 0 ] ; then
+        if [[ ! $? == 0 ]] ; then
             echo "WARNING: Unable to query $member for its configuration details."
             continue
         fi
