@@ -12,20 +12,27 @@
 #
 # Format is as follows:
 #
-#  '<HOST>:<PORT>' '<USER NAME>' '<PASSWORD>' '<DATABASE NAME>'
+# Override default options at runtime by preceeding the script with your
+# settings.
 #
-# There are NO COMMAS in-between the fields ...
+# SRC_HOST='1.2.3.4' SRC_USERNAME='test' /path/to/mongodb_save_and_restore.sh
 #
-# Note that both host and port HAVE TO be given as: '<HOST>:<PORT>'.
-#
-DATABASE_SOURCE=('127.0.0.1:27017' 'user name' 'password' 'database name')
-DATABASE_DESTINATION=('127.0.1.1:27017' 'user name' 'password' 'database name')
+SRC_HOST=${SRC_HOST:-'127.0.0.1'}
+SRC_PORT=${SRC_PORT:-'27017'}
+SRC_USERNAME=${SRC_USERNAME:-''}
+SRC_PASSWORD=${SRC_PASSWORD:-''}
+SRC_DATABASE=${SRC_DATABASE:-'database name'}
+DST_HOST=${DST_HOST:-'127.0.1.1'}
+DST_PORT=${DST_PORT:-'27017'}
+DST_USERNAME=${DST_USERNAME:-''}
+DST_PASSWORD=${DST_PASSWORD:-''}
+DST_DATABASE=${DST_DATABASE:-'database name'}
 
 # This will be the temporary work space ...
-WORK_DIRECTORY='/tmp'
+WORK_DIRECTORY=${WORK_DIRECTORY:-'/tmp'}
 
 # We delay restoration on a busy systems to minimise I/O wait times etc ...
-DELAY_RESTORE=60
+DELAY_RESTORE=${DELAY_RESTORE:-60}
 
 #
 # Location of "mongodump" and "mongorestore" binaries as per what Debian
@@ -67,7 +74,7 @@ if (set -o noclobber ; echo $$ > "$LOCK_FILE") &> /dev/null ; then
 
     random_name SAVE_DIRECTORY
 
-    RESTORE_DIRECTORY="${SAVE_DIRECTORY}/${DATABASE_SOURCE[3]}"
+    RESTORE_DIRECTORY="${SAVE_DIRECTORY}/${SRC_DATABASE}"
 
     [ -d "$WORK_DIRECTORY" ] || mkdir -p "$WORK_DIRECTORY" &> /dev/null
 
@@ -85,17 +92,17 @@ if (set -o noclobber ; echo $$ > "$LOCK_FILE") &> /dev/null ; then
 
     start=$(date +%s)
 
-    notice "Saving the database from: ${DATABASE_SOURCE[0]%%:*}"
+    notice "Saving the database from: ${SRC_HOST}"
 
     $MONGODUMP_BINARY --directoryperdb --journal         \
-                      --host "${DATABASE_SOURCE[0]%%:*}" \
-                      --port "${DATABASE_SOURCE[0]##*:}" \
-                      --username "${DATABASE_SOURCE[1]}" \
-                      --password "${DATABASE_SOURCE[2]}" \
-                      --db "${DATABASE_SOURCE[3]}"       \
+                      --host "${SRC_HOST}"         \
+                      --port "${SRC_PORT}"         \
+                      --username "${SRC_USERNAME}" \
+                      --password "${SRC_PASSWORD}" \
+                      --db "${SRC_DATABASE}"       \
                       --out "$SAVE_DIRECTORY" &> /dev/null ||
     {
-        die "Unable to save the database dump from: ${DATABASE_SOURCE[0]%%:*}"
+        die "Unable to save the database dump from: ${SRC_HOST}"
     }
 
     size=$(du -sh "$SAVE_DIRECTORY" | cut -f 1)
@@ -108,17 +115,17 @@ if (set -o noclobber ; echo $$ > "$LOCK_FILE") &> /dev/null ; then
 
     start=$(date +%s)
 
-    notice "Restoring the database to: ${DATABASE_DESTINATION[0]%%:*}"
+    notice "Restoring the database to: ${DST_HOST}"
 
     $MONGORESTORE_BINARY --directoryperdb --journal --drop       \
-                         --host "${DATABASE_DESTINATION[0]%%:*}" \
-                         --port "${DATABASE_DESTINATION[0]##*:}" \
-                         --username "${DATABASE_DESTINATION[1]}" \
-                         --password "${DATABASE_DESTINATION[2]}" \
-                         --db "${DATABASE_DESTINATION[3]}"       \
+                         --host "${DST_HOST}"         \
+                         --port "${DST_PORT}"         \
+                         --username "${DST_USERNAME}" \
+                         --password "${DST_PASSWORD}" \
+                         --db "${DST_DATABASE}"       \
                          "$RESTORE_DIRECTORY" &> /dev/null ||
     {
-        die "Unable to restore the database to: ${DATABASE_DESTINATION[0]%%:*}"
+        die "Unable to restore the database to: ${DST_HOST}"
     }
 
     notice "Successfully restored the database.  Restoration took $[$(date +%s) - $start] seconds."
