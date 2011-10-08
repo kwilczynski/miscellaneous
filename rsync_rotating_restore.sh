@@ -17,6 +17,7 @@ function die {
     exit 1
 }
 
+# Remove stale lock file ...
 [ -e "/proc/$(cat "$LOCK_FILE" 2> /dev/null)" ] || rm -f "$LOCK_FILE"
 
 if (set -o noclobber ; echo $$ > "$LOCK_FILE") &> /dev/null ; then
@@ -42,7 +43,7 @@ if (set -o noclobber ; echo $$ > "$LOCK_FILE") &> /dev/null ; then
 
     rm -f "$LOCK_FILE"
 
+    # Restore default signal handling mechanism ...
     trap - INT TERM EXIT
 fi
 
-exit 0
