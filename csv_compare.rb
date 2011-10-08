@@ -10,17 +10,25 @@
 # Ruby Core CSV is slow but it will do the job this time ...
 require 'csv'
 
-# Small helper class ...
+def die(message, exit_code=1, with_new_line=true)
+  if message and not message.empty?
+    STDERR.print message + (with_new_line ? "\n" : '')
+  end
+
+  exit(exit_code)
+end
+
 class Compare
   class << self
     def csv(this, other, headers=false)
-      this  = CSV.read(this)
-      other = CSV.read(other)
-
       # Store each row in the CSV file here ...
       rows = []
 
-      # I hope no Ruby Developer will ever see this. Heresy :-)
+      # Load and process content of both files ...
+      this  = CSV.read(this)
+      other = CSV.read(other)
+
+      # Hopefully no Ruby developer will ever see this. Heresy :-)
       %w(this other).each { |i| eval "#{i}.shift" } unless headers
 
       # Select file with greater number of rows and/or records ...
@@ -48,8 +56,7 @@ if $0 == __FILE__
 
   # We terminate if no files are given ...
   unless this and other
-    puts 'Please specify files you wish to compare.'
-    exit 1
+    die "#{$0}: you must specify files you wish to compare ..."
   end
 
   # We accept anything and simply go about with including headers ...
@@ -59,8 +66,7 @@ if $0 == __FILE__
     # Compare given CVS files ...
     result = Compare.csv(this, other, headers)
   rescue Exception => e
-    puts "An error occurred while comparing files: #{e}"
-    exit 1
+    die "#{$0}: an error occurred while comparing files: #{e}"
   end
 
   # Keep things simple and avoid long path names ...
@@ -81,6 +87,4 @@ if $0 == __FILE__
 
     exit 1
   end
-
-  exit 0
 end
