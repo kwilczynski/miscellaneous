@@ -10,18 +10,22 @@
 #
 
 #
+# Override default options at run-time by preceding the script with your
+# desirable settings.
+#
 # Format is as follows:
 #
-# Override default options at runtime by preceeding the script with your
-# settings.
+#  SRC_HOST='1.2.3.4' SRC_USERNAME='test' /path/to/mongodb_save_and_restore.sh
 #
-# SRC_HOST='1.2.3.4' SRC_USERNAME='test' /path/to/mongodb_save_and_restore.sh
-#
+
+# Source database ...
 SRC_HOST=${SRC_HOST:-'127.0.0.1'}
 SRC_PORT=${SRC_PORT:-'27017'}
 SRC_USERNAME=${SRC_USERNAME:-''}
 SRC_PASSWORD=${SRC_PASSWORD:-''}
 SRC_DATABASE=${SRC_DATABASE:-'database name'}
+
+# Destination database ...
 DST_HOST=${DST_HOST:-'127.0.1.1'}
 DST_PORT=${DST_PORT:-'27017'}
 DST_USERNAME=${DST_USERNAME:-''}
@@ -45,7 +49,7 @@ MONGORESTORE_BINARY='/usr/bin/mongorestore'
 LOCK_FILE="/var/lock/$(basename -- "$0").lock"
 
 function notice {
-    local __message="$(basename -- "$0") [$$]: $( date -R ) $@"
+    local __message="$(basename -- "$0") [$$]: $(date -R) $@"
     echo "$__message"
     logger "$__message"
 }
@@ -62,10 +66,12 @@ function die {
 }
 
 function random_name {
+    # We will use indirect-reference hack to return variable from this function.
     local __return=$1
     eval $__return="'$(date +"$(basename -- "$0")_%s_${RANDOM}_$$")'"
 }
 
+# Remove stale lock file ...
 [ -e "/proc/$(cat "$LOCK_FILE" 2> /dev/null)" ] || rm -f "$LOCK_FILE"
 
 notice 'Starting the database save and restore ...'
@@ -74,11 +80,11 @@ if (set -o noclobber ; echo $$ > "$LOCK_FILE") &> /dev/null ; then
 
     random_name SAVE_DIRECTORY
 
-    RESTORE_DIRECTORY="${SAVE_DIRECTORY}/${SRC_DATABASE}"
-
-    [ -d "$WORK_DIRECTORY" ] || mkdir -p "$WORK_DIRECTORY" &> /dev/null
-
-    pushd "$WORK_DIRECTORY" &> /dev/null
+    #
+    # We close standard input to force "mongodump" and "mongorestore" to fail
+    # right away instead of for instance wait for user input i.e. password, etc ...
+    #
+    exec 0<&-
 
     trap 'rm -r -f "$LOCK_FILE" "$SAVE_DIRECTORY"' EXIT
 
@@ -88,13 +94,19 @@ if (set -o noclobber ; echo $$ > "$LOCK_FILE") &> /dev/null ; then
             exit 1
           }' HUP INT QUIT KILL TERM
 
+    RESTORE_DIRECTORY="${SAVE_DIRECTORY}/${SRC_DATABASE}"
+
+    [ -d "$WORK_DIRECTORY" ] || mkdir -p "$WORK_DIRECTORY" &> /dev/null
+
+    pushd "$WORK_DIRECTORY" &> /dev/null
+
     mkdir -p "$SAVE_DIRECTORY" &> /dev/null
 
     start=$(date +%s)
 
     notice "Saving the database from: ${SRC_HOST}"
 
-    $MONGODUMP_BINARY --directoryperdb --journal         \
+    $MONGODUMP_BINARY --directoryperdb --journal   \
                       --host "${SRC_HOST}"         \
                       --port "${SRC_PORT}"         \
                       --username "${SRC_USERNAME}" \
@@ -117,12 +129,12 @@ if (set -o noclobber ; echo $$ > "$LOCK_FILE") &> /dev/null ; then
 
     notice "Restoring the database to: ${DST_HOST}"
 
-    $MONGORESTORE_BINARY --directoryperdb --journal --drop       \
-                         --host "${DST_HOST}"         \
-                         --port "${DST_PORT}"         \
-                         --username "${DST_USERNAME}" \
-                         --password "${DST_PASSWORD}" \
-                         --db "${DST_DATABASE}"       \
+    $MONGORESTORE_BINARY --directoryperdb --journal --drop \
+                         --host "${DST_HOST}"              \
+                         --port "${DST_PORT}"              \
+                         --username "${DST_USERNAME}"      \
+                         --password "${DST_PASSWORD}"      \
+                         --db "${DST_DATABASE}"            \
                          "$RESTORE_DIRECTORY" &> /dev/null ||
     {
         die "Unable to restore the database to: ${DST_HOST}"
@@ -136,11 +148,10 @@ if (set -o noclobber ; echo $$ > "$LOCK_FILE") &> /dev/null ; then
 
     rm -r -f "$LOCK_FILE"
 
-    trap - INT TERM EXIT
+    # Restore default signal handling mechanism ...
+    trap - HUP INT QUIT KILL TERM EXIT
 
     notice 'Completed the database save and restore.'
 else
     die "Unable to create lock file (current owner: "$(cat "$LOCK_FILE" 2> /dev/null)")."
 fi
-
-exit 0
