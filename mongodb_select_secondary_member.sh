@@ -16,7 +16,7 @@ function select_secondary_member {
               'rs.isMaster().hosts.forEach(function(x) { print(x) })' 2> /dev/null) )
 
   if [[ ! $? == 0 ]] ; then
-    echo "ERROR: Unable to retrieve list of Replica Sets members from local MongoDB instance." >&2
+    echo 'Unable to retrieve list of Replica Sets members from local MongoDB instance.' >&2
     return 1
   else
     # Process list of Replica Sets members and look for any Secondary ...
@@ -25,7 +25,7 @@ function select_secondary_member {
         master_status="$(mongo --quiet --host $member --eval 'rs.isMaster().ismaster' 2> /dev/null)"
 
         if [[ ! $? == 0 ]] ; then
-            echo "WARNING: Unable to query $member for its configuration details."
+            echo "Unable to query $member for its configuration details."
             continue
         fi
 
@@ -50,7 +50,7 @@ function select_secondary_member {
 
     # Nothing found?  Then abort ...
     if [ -z "$secondary" ] ; then
-      echo "ERROR: No suitable Secondary found in the Replica Sets." >&2
+      echo 'No suitable Secondary found in the Replica Sets.' >&2
       return 1
     else
       # Ugly hack to return value from a Bash function ...
@@ -59,8 +59,9 @@ function select_secondary_member {
   fi
 }
 
+# We need Mongo Shell to be able to carry-out selection ...
 if [ -z "$(which mongo)" ] ; then
-  echo "ERROR: Unable to locate Mongo Shell binary." >&2
+  echo 'Unable to locate Mongo Shell binary.' >&2
   exit 1
 fi
 
@@ -72,5 +73,3 @@ if [ -n "$secondary" ] ; then
 else
   exit $?
 fi
-
-exit 0

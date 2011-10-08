@@ -5,45 +5,45 @@ limit nofile 32768 32768
 kill timeout 300
 
 pre-start script
-	# Basic house keeping ...
-	mkdir -p /var/lib/mongodb &> /dev/null
-	mkdir -p /var/log/mongodb &> /dev/null
-	chown mongodb.nogroup /var/lib/mongodb &> /dev/null
-	chown mongodb.nogroup /var/log/mongodb &> /dev/null
+  # Basic house keeping ...
+  mkdir -p /var/lib/mongodb &> /dev/null
+  mkdir -p /var/log/mongodb &> /dev/null
+  chown mongodb.nogroup /var/lib/mongodb &> /dev/null
+  chown mongodb.nogroup /var/log/mongodb &> /dev/null
 end script
 
 start on runlevel [2345]
 stop  on runlevel [06]
 
 script
-	# We start MongoDB by default unless it was overridden in /etc/default/mongodb.
-	ENABLE_MONGODB='yes'
+  # We start MongoDB by default unless it was overridden in /etc/default/mongodb.
+  ENABLE_MONGODB='yes'
 
-	# Location of the mongod binary.
-	MONGOD_BINARY='/usr/bin/mongod'
+  # Location of the mongod binary.
+  MONGOD_BINARY='/usr/bin/mongod'
 
-	# Set command line parameters for mongod.
-	MONGOD_OPTIONS='--config /etc/mongodb.conf'
+  # Set command line parameters for mongod.
+  MONGOD_OPTIONS='--config /etc/mongodb.conf'
 
-	# Locate NUMA policy control binary.
-	NUMACTL_BINARY=$( which numactl 2> /dev/null ; true )
+  # Locate NUMA policy control binary.
+  NUMACTL_BINARY=$(which numactl 2> /dev/null ; true)
 
-	# Set default set of options.
-	DAEMON_OPTIONS="$MONGOD_BINARY -- $MONGOD_OPTIONS"
+  # Set default set of options.
+  DAEMON_OPTIONS="$MONGOD_BINARY -- $MONGOD_OPTIONS"
 
-	# Check whether hardware is a real NUMA platform.
-	$( $NUMACTL_BINARY --hardware > /dev/null 2>&1 ) &&
-	{
-		# Override default set of options.
-		DAEMON_OPTIONS="$NUMACTL_BINARY -- --interleave=all $MONGOD_BINARY $MONGOD_OPTIONS"
-	}
+  # Check whether hardware is a real NUMA platform.
+  $($NUMACTL_BINARY --hardware > /dev/null 2>&1) &&
+  {
+    # Override default set of options.
+    DAEMON_OPTIONS="$NUMACTL_BINARY -- --interleave=all $MONGOD_BINARY $MONGOD_OPTIONS"
+  }
 
-	# Load configuration if exists.
-	[ -f /etc/default/mongodb ] && . /etc/default/mongodb
+  # Load configuration if exists.
+  [ -f /etc/default/mongodb ] && . /etc/default/mongodb
 
-	# Start MongoDB instance.
-	[ "x${ENABLE_MONGODB}" = 'xyes' ] &&
-	{
-		exec start-stop-daemon --start --quiet --chuid mongodb --exec $DAEMON_OPTIONS
-	}
+  # Start MongoDB instance.
+  [ "x${ENABLE_MONGODB}" = 'xyes' ] &&
+  {
+    exec start-stop-daemon --start --quiet --chuid mongodb --exec $DAEMON_OPTIONS
+  }
 end script
