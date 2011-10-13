@@ -25,7 +25,7 @@ exit(1) unless File.exists?(WM_CTRL_BINARY) and File.exists?(XPROP_BINARY)
 current_desktop = 0
 
 # First step is to detect current desktop ...
-%x{ #{WM_CTRL_BINARY} -d }.each do |l|
+%x{ #{WM_CTRL_BINARY} -d }.each_line do |l|
   # Remove bloat ...
   l.strip!
 
@@ -35,7 +35,7 @@ current_desktop = 0
 end
 
 # Second step is to restore all minimised windows on current desktop only ...
-%x{ #{WM_CTRL_BINARY} -l }.each do |l|
+%x{ #{WM_CTRL_BINARY} -l }.each_line do |l|
   # Remove bloat ...
   l.strip!
 
@@ -51,3 +51,4 @@ end
 end
 
 # vim: set ts=2 sw=2 et :
+# encoding: utf-8

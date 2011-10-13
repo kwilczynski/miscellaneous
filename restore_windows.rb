@@ -20,7 +20,7 @@ WINDOW_STATE_PROPERTY = '_NET_WM_STATE_HIDDEN'
 # We need to have these two to be able to do the job ...
 exit(1) unless File.exists?(WM_CTRL_BINARY) and File.exists?(XPROP_BINARY)
 
-%x{ #{WM_CTRL_BINARY} -l }.each do |l|
+%x{ #{WM_CTRL_BINARY} -l }.each_line do |l|
   # Remove bloat ...
   l.strip!
 
@@ -36,3 +36,4 @@ exit(1) unless File.exists?(WM_CTRL_BINARY) and File.exists?(XPROP_BINARY)
 end
 
 # vim: set ts=2 sw=2 et :
+# encoding: utf-8

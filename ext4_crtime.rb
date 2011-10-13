@@ -101,7 +101,7 @@ if $0 == __FILE__
   device = known_devices[File.stat(file).dev].first
 
   # Grab and process output for particular file given ...
-  %x{ #{DEBUGFS_BINARY} -R "stat #{file}" #{device} 2> /dev/null }.each do |line|
+  %x{ #{DEBUGFS_BINARY} -R "stat #{file}" #{device} 2> /dev/null }.each_line do |line|
     # Remove bloat ...
     line.strip!
 
@@ -129,3 +129,4 @@ if $0 == __FILE__
 end
 
 # vim: set ts=2 sw=2 et :
+# encoding: utf-8

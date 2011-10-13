@@ -145,7 +145,7 @@ if $0 == __FILE__
 
   tables.each do |name|
     # Grab and process output for a particular table ...
-    %x{ #{binary} -t #{name} }.each do |line|
+    %x{ #{binary} -t #{name} }.each_line do |line|
       # Remove bloat ...
       line.strip!
 
@@ -164,3 +164,4 @@ if $0 == __FILE__
 end
 
 # vim: set ts=2 sw=2 et :
+# encoding: utf-8
