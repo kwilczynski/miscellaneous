@@ -11,12 +11,35 @@
 #   /dev/rdisk0s2
 #
 
+# We monkey-patch a little ...
 class File::Stat
   class << self
     def device_name(file)
-      Dir['/dev/*'].inject({}) { |h,v|
-        h.update(File.stat(v).rdev => v)
-      }.values_at(File.stat(file).dev).shift
+      # List of numeric identifiers with their corresponding canonical forms ...
+      known_devices = Dir['/dev/*'].inject({}) do |k,v|
+        #
+        # We protect ourselves against broken symbolic links under "/dev" and
+        # skip all non-block devices as for example a sound card cannot really
+        # host a file system ...
+        #
+        if File.exists?(v) and File.blockdev?(v)
+          # Resolve any symbolic links we may encounter ...
+          v = File.readlink(v) if File.symlink?(v)
+
+          #
+          # Make sure that we have full path to the entry under "/dev" ...
+          # This tends to be often broken there ...  Relative path hell ...
+          #
+          v = File.join('/dev', v) unless File.exists?(v)
+
+          k.update(File.stat(v).rdev => v)
+        end
+
+        k # Yield hash back into the block ...
+      end
+
+      # Return only the device of interest ...
+      known_devices.values_at(File.stat(file).dev).shift
     end
   end
 end
@@ -50,7 +73,7 @@ Usage:
 end
 
 if $0 == __FILE__
-
+  # Make sure that we flush buffers as soon as possible ...
   STDOUT.sync = true
   STDERR.sync = true
 
@@ -67,7 +90,7 @@ if $0 == __FILE__
       verbose = true
       file    = ARGV.shift
     when /^--help|-h$/
-      print_usage()
+      print_usage
     else
       file = option
   end
@@ -84,3 +107,4 @@ if $0 == __FILE__
 end
 
 # vim: set ts=2 sw=2 et :
+# encoding: utf-8
