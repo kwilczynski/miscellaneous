@@ -1,5 +1,4 @@
 #!/usr/bin/env ruby
-# encoding: utf-8
 
 #
 # csv_compare.rb
@@ -91,3 +90,4 @@ if $0 == __FILE__
 end
 
 # vim: set ts=2 sw=2 et :
+# encoding: utf-8
