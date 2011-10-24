@@ -1,0 +1,387 @@
+diff --git a/include/linux/ip_vs.h b/include/linux/ip_vs.h
+index dfc1703..69db9b5 100644
+--- a/include/linux/ip_vs.h
++++ b/include/linux/ip_vs.h
+@@ -27,6 +27,18 @@
+ #define IP_VS_DEST_F_OVERLOAD	0x0002		/* server is overloaded */
+ 
+ /*
++ *      Advisory flags for slow start.
++ *
++ *      The absolute value size of the weight change will be stored
++ *      in dest->slow_start_data.  The flag and slow_start_data may
++ *      be used and modified by the scheduler to effect slow start.
++ */
++#define IP_VS_DEST_F_WEIGHT_INC       0x0002    /* Weight has been increaced */
++#define IP_VS_DEST_F_WEIGHT_DEC       0x0004    /* Weight has been increaced */
++#define IP_VS_DEST_F_WEIGHT_MASK	\
++	(IP_VS_DEST_F_WEIGHT_INC|IP_VS_DEST_F_WEIGHT_DEC)
++
++/*
+  *      IPVS sync daemon states
+  */
+ #define IP_VS_STATE_NONE	0x0000		/* daemon is stopped */
+diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
+index fe82b1e..b51cee5 100644
+--- a/include/net/ip_vs.h
++++ b/include/net/ip_vs.h
+@@ -514,6 +514,10 @@ struct ip_vs_dest {
+ 	union nf_inet_addr	vaddr;		/* virtual IP address */
+ 	__be16			vport;		/* virtual port number */
+ 	__u32			vfwmark;	/* firewall mark of service */
++
++	/* for slow start */
++	atomic_t		slow_start_data;
++	atomic_t		slow_start_data2;
+ };
+ 
+ 
+@@ -812,7 +816,9 @@ extern struct ip_vs_dest *
+ ip_vs_find_dest(int af, const union nf_inet_addr *daddr, __be16 dport,
+ 		const union nf_inet_addr *vaddr, __be16 vport, __u16 protocol);
+ extern struct ip_vs_dest *ip_vs_try_bind_dest(struct ip_vs_conn *cp);
+-
++extern inline unsigned int
++ip_vs_conn_slow_start_dest_handicap(struct ip_vs_dest *dest,
++		struct ip_vs_service *svc);
+ 
+ /*
+  *      IPVS sync daemon data and function prototypes
+diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+index 36dc1d8..7dfd755 100644
+--- a/net/netfilter/ipvs/ip_vs_ctl.c
++++ b/net/netfilter/ipvs/ip_vs_ctl.c
+@@ -51,6 +51,8 @@
+ 
+ #include <net/ip_vs.h>
+ 
++EXPORT_SYMBOL(ip_vs_conn_slow_start_dest_handicap);
++
+ /* semaphore for IPVS sockopts. And, [gs]etsockopt may sleep. */
+ static DEFINE_MUTEX(__ip_vs_mutex);
+ 
+@@ -762,6 +764,22 @@ __ip_vs_update_dest(struct ip_vs_service *svc,
+ 		    struct ip_vs_dest *dest, struct ip_vs_dest_user_kern *udest)
+ {
+ 	int conn_flags;
++	int old_weight;
++
++	/* set hints for slow start */
++	dest->flags |= IP_VS_DEST_F_WEIGHT_MASK;
++	dest->flags ^= IP_VS_DEST_F_WEIGHT_MASK;
++
++	old_weight = atomic_read(&dest->weight);
++
++	if (old_weight < udest->weight) {
++		atomic_set(&dest->slow_start_data, udest->weight - old_weight);
++		dest->flags |= IP_VS_DEST_F_WEIGHT_INC;
++	}
++	else if (old_weight > udest->weight) {
++		atomic_set(&dest->slow_start_data, old_weight - udest->weight);
++		dest->flags |= IP_VS_DEST_F_WEIGHT_DEC;
++	}
+ 
+ 	/* set the weight and the flags */
+ 	atomic_set(&dest->weight, udest->weight);
+@@ -3265,6 +3283,134 @@ out:
+ 	return ret;
+ }
+ 
++static void
++__ip_vs_conn_set_slow_start(struct ip_vs_dest *dest, struct ip_vs_service *svc)
++{
++	__u32 ss_handicap;
++	__u32 ss_shift;
++	__u32 ndest;
++	__u32 w = 0;
++	__u32 dest_w = 0;
++	struct list_head *l, *e;
++	struct ip_vs_dest *d;
++
++	/*
++	 * If the weight is zero just set the slow_start hint and data to
++	 * zero too as they won't be used.
++	 */
++
++	if((dest->flags & IP_VS_DEST_F_WEIGHT_DEC) ||
++			!(dest_w = atomic_read(&dest->weight))) {
++		IP_VS_DBG(1, "slow_start: null\n");
++		atomic_set(&dest->slow_start_data, 0);
++		atomic_set(&dest->slow_start_data2, 0);
++		return;
++	}
++
++	/*
++	 * Calculate a weighted number of connections this server would
++	 * have if all the currently active connections were redistributed
++	 * limited to a maximum of 64k.
++	 */
++	l = &svc->destinations;
++
++	ss_handicap = 0;
++	ndest = 0;
++
++	for (e = l->next; e != l; e = e->next) {
++		d = list_entry(e, struct ip_vs_dest, n_list);
++		w = atomic_read(&d->weight);
++
++		if (w < 1 || d == dest) {
++			continue;
++		}
++
++		ndest++;
++
++		/* Try to avoid overflowint ss_handicap */
++		ss_shift = atomic_read(&d->activeconns);
++
++		if(ss_shift & 0xffff0000)
++			ss_shift = 0xffff;
++
++		ss_shift = (ss_shift << 16 ) / (w & 0xffff);
++
++		if (~0L - ss_handicap < ss_shift) {
++			ss_handicap = ~0L;
++			break;
++		}
++
++		ss_handicap += ss_shift;
++	}
++
++	if (ndest)
++		ss_handicap = (ss_handicap * dest_w / ndest) >> 16;
++
++	/* ss_shift = log_2((ss_handicap & 0xfff) >> 3) */
++	if (ss_handicap) {
++		__u32 i;
++		ss_shift = ss_handicap;;
++
++		for (i = 12; i > 0; i--) {
++			if(ss_shift & 0x8000)
++				break;
++
++			ss_shift <<= 1;
++		}
++
++		ss_shift = i;
++		ss_handicap <<= ss_shift;
++	}
++	else
++		ss_shift = 0;
++
++	atomic_set(&dest->slow_start_data, ss_handicap);
++	atomic_set(&dest->slow_start_data2, ss_shift);
++
++	IP_VS_DBG(1, "CONN slow_start_init: server %u.%u.%u.%u:%u "
++			"handicap=%u (%u) shift=%u ndest=%u\n",
++			((unsigned char *)&dest->addr)[0],
++			((unsigned char *)&dest->addr)[1],
++			((unsigned char *)&dest->addr)[2],
++			((unsigned char *)&dest->addr)[3],
++			ntohs(dest->port), ss_handicap,
++			ss_handicap >> ss_shift, ss_shift, ndest);
++}
++
++inline unsigned int
++ip_vs_conn_slow_start_dest_handicap(struct ip_vs_dest *dest,
++		struct ip_vs_service *svc)
++{
++	unsigned int handicap;
++
++
++	/* Set up slow_start if weight has recently changed */
++	if (unlikely(dest->flags & IP_VS_DEST_F_WEIGHT_MASK)) {
++		__ip_vs_conn_set_slow_start(dest, svc);
++		dest->flags |= IP_VS_DEST_F_WEIGHT_MASK;
++		dest->flags ^= IP_VS_DEST_F_WEIGHT_MASK;
++	}
++
++	handicap = atomic_read(&dest->slow_start_data);
++
++	if (unlikely(!handicap))
++		return 0;
++
++	handicap--;
++	atomic_set(&dest->slow_start_data, handicap);
++
++#ifdef CONFIG_IP_VS_DEBUG
++	if (unlikely(!handicap))
++		IP_VS_DBG(1, "CONN slow_start_end: server %u.%u.%u.%u:%u\n",
++				((unsigned char *)&dest->addr)[0],
++				((unsigned char *)&dest->addr)[1],
++				((unsigned char *)&dest->addr)[2],
++				((unsigned char *)&dest->addr)[3],
++				ntohs(dest->port));
++#endif
++
++	return handicap >> atomic_read(&dest->slow_start_data2);
++}
+ 
+ static struct genl_ops ip_vs_genl_ops[] __read_mostly = {
+ 	{
+diff --git a/net/netfilter/ipvs/ip_vs_lblc.c b/net/netfilter/ipvs/ip_vs_lblc.c
+index 94a4521..d8649ae 100644
+--- a/net/netfilter/ipvs/ip_vs_lblc.c
++++ b/net/netfilter/ipvs/ip_vs_lblc.c
+@@ -412,6 +412,7 @@ __ip_vs_lblc_schedule(struct ip_vs_service *svc)
+ 		if (atomic_read(&dest->weight) > 0) {
+ 			least = dest;
+ 			loh = atomic_read(&least->activeconns) * 50
++				+ ip_vs_conn_slow_start_dest_handicap(dest, svc)
+ 				+ atomic_read(&least->inactconns);
+ 			goto nextstage;
+ 		}
+@@ -427,6 +428,7 @@ __ip_vs_lblc_schedule(struct ip_vs_service *svc)
+ 			continue;
+ 
+ 		doh = atomic_read(&dest->activeconns) * 50
++			+ ip_vs_conn_slow_start_dest_handicap(dest, svc)
+ 			+ atomic_read(&dest->inactconns);
+ 		if (loh * atomic_read(&dest->weight) >
+ 		    doh * atomic_read(&least->weight)) {
+diff --git a/net/netfilter/ipvs/ip_vs_lblcr.c b/net/netfilter/ipvs/ip_vs_lblcr.c
+index 535dc2b..79101be 100644
+--- a/net/netfilter/ipvs/ip_vs_lblcr.c
++++ b/net/netfilter/ipvs/ip_vs_lblcr.c
+@@ -163,7 +163,8 @@ static void ip_vs_dest_set_eraseall(struct ip_vs_dest_set *set)
+ }
+ 
+ /* get weighted least-connection node in the destination set */
+-static inline struct ip_vs_dest *ip_vs_dest_set_min(struct ip_vs_dest_set *set)
++static inline struct ip_vs_dest *ip_vs_dest_set_min(struct ip_vs_dest_set *set,
++	struct ip_vs_service *svc)
+ {
+ 	register struct ip_vs_dest_set_elem *e;
+ 	struct ip_vs_dest *dest, *least;
+@@ -181,6 +182,7 @@ static inline struct ip_vs_dest *ip_vs_dest_set_min(struct ip_vs_dest_set *set)
+ 		if ((atomic_read(&least->weight) > 0)
+ 		    && (least->flags & IP_VS_DEST_F_AVAILABLE)) {
+ 			loh = atomic_read(&least->activeconns) * 50
++				+ ip_vs_conn_slow_start_dest_handicap(least, svc)
+ 				+ atomic_read(&least->inactconns);
+ 			goto nextstage;
+ 		}
+@@ -195,6 +197,7 @@ static inline struct ip_vs_dest *ip_vs_dest_set_min(struct ip_vs_dest_set *set)
+ 			continue;
+ 
+ 		doh = atomic_read(&dest->activeconns) * 50
++			+ ip_vs_conn_slow_start_dest_handicap(dest, svc)
+ 			+ atomic_read(&dest->inactconns);
+ 		if ((loh * atomic_read(&dest->weight) >
+ 		     doh * atomic_read(&least->weight))
+@@ -217,7 +220,8 @@ static inline struct ip_vs_dest *ip_vs_dest_set_min(struct ip_vs_dest_set *set)
+ 
+ 
+ /* get weighted most-connection node in the destination set */
+-static inline struct ip_vs_dest *ip_vs_dest_set_max(struct ip_vs_dest_set *set)
++static inline struct ip_vs_dest *ip_vs_dest_set_max(struct ip_vs_dest_set *set,
++	struct ip_vs_service *svc)
+ {
+ 	register struct ip_vs_dest_set_elem *e;
+ 	struct ip_vs_dest *dest, *most;
+@@ -231,6 +235,7 @@ static inline struct ip_vs_dest *ip_vs_dest_set_max(struct ip_vs_dest_set *set)
+ 		most = e->dest;
+ 		if (atomic_read(&most->weight) > 0) {
+ 			moh = atomic_read(&most->activeconns) * 50
++				+ ip_vs_conn_slow_start_dest_handicap(most, svc)
+ 				+ atomic_read(&most->inactconns);
+ 			goto nextstage;
+ 		}
+@@ -242,6 +247,7 @@ static inline struct ip_vs_dest *ip_vs_dest_set_max(struct ip_vs_dest_set *set)
+ 	list_for_each_entry(e, &set->list, list) {
+ 		dest = e->dest;
+ 		doh = atomic_read(&dest->activeconns) * 50
++			+ ip_vs_conn_slow_start_dest_handicap(dest, svc)
+ 			+ atomic_read(&dest->inactconns);
+ 		/* moh/mw < doh/dw ==> moh*dw < doh*mw, where mw,dw>0 */
+ 		if ((moh * atomic_read(&dest->weight) <
+@@ -669,7 +675,7 @@ ip_vs_lblcr_schedule(struct ip_vs_service *svc, const struct sk_buff *skb)
+ 
+ 		/* Get the least loaded destination */
+ 		read_lock(&en->set.lock);
+-		dest = ip_vs_dest_set_min(&en->set);
++		dest = ip_vs_dest_set_min(&en->set, svc);
+ 		read_unlock(&en->set.lock);
+ 
+ 		/* More than one destination + enough time passed by, cleanup */
+@@ -679,7 +685,7 @@ ip_vs_lblcr_schedule(struct ip_vs_service *svc, const struct sk_buff *skb)
+ 			struct ip_vs_dest *m;
+ 
+ 			write_lock(&en->set.lock);
+-			m = ip_vs_dest_set_max(&en->set);
++			m = ip_vs_dest_set_max(&en->set, svc);
+ 			if (m)
+ 				ip_vs_dest_set_erase(&en->set, m);
+ 			write_unlock(&en->set.lock);
+diff --git a/net/netfilter/ipvs/ip_vs_lc.c b/net/netfilter/ipvs/ip_vs_lc.c
+index 4f69db1..49e8b5a 100644
+--- a/net/netfilter/ipvs/ip_vs_lc.c
++++ b/net/netfilter/ipvs/ip_vs_lc.c
+@@ -24,7 +24,7 @@
+ 
+ 
+ static inline unsigned int
+-ip_vs_lc_dest_overhead(struct ip_vs_dest *dest)
++ip_vs_lc_dest_overhead(struct ip_vs_dest *dest, struct ip_vs_service *svc)
+ {
+ 	/*
+ 	 * We think the overhead of processing active connections is 256
+@@ -33,7 +33,8 @@ ip_vs_lc_dest_overhead(struct ip_vs_dest *dest)
+ 	 * use the following formula to estimate the overhead now:
+ 	 *		  dest->activeconns*256 + dest->inactconns
+ 	 */
+-	return (atomic_read(&dest->activeconns) << 8) +
++	return ((atomic_read(&dest->activeconns) +
++			ip_vs_conn_slow_start_dest_handicap(dest, svc)) << 8) +
+ 		atomic_read(&dest->inactconns);
+ }
+ 
+@@ -62,7 +63,7 @@ ip_vs_lc_schedule(struct ip_vs_service *svc, const struct sk_buff *skb)
+ 		if ((dest->flags & IP_VS_DEST_F_OVERLOAD) ||
+ 		    atomic_read(&dest->weight) == 0)
+ 			continue;
+-		doh = ip_vs_lc_dest_overhead(dest);
++		doh = ip_vs_lc_dest_overhead(dest, svc);
+ 		if (!least || doh < loh) {
+ 			least = dest;
+ 			loh = doh;
+diff --git a/net/netfilter/ipvs/ip_vs_wlc.c b/net/netfilter/ipvs/ip_vs_wlc.c
+index bbddfdb..ed4571b 100644
+--- a/net/netfilter/ipvs/ip_vs_wlc.c
++++ b/net/netfilter/ipvs/ip_vs_wlc.c
+@@ -29,7 +29,7 @@
+ 
+ 
+ static inline unsigned int
+-ip_vs_wlc_dest_overhead(struct ip_vs_dest *dest)
++ip_vs_wlc_dest_overhead(struct ip_vs_dest *dest, struct ip_vs_service *svc)
+ {
+ 	/*
+ 	 * We think the overhead of processing active connections is 256
+@@ -38,7 +38,8 @@ ip_vs_wlc_dest_overhead(struct ip_vs_dest *dest)
+ 	 * use the following formula to estimate the overhead now:
+ 	 *		  dest->activeconns*256 + dest->inactconns
+ 	 */
+-	return (atomic_read(&dest->activeconns) << 8) +
++	return ((atomic_read(&dest->activeconns) +
++			ip_vs_conn_slow_start_dest_handicap(dest, svc)) << 8) +
+ 		atomic_read(&dest->inactconns);
+ }
+ 
+@@ -71,7 +72,7 @@ ip_vs_wlc_schedule(struct ip_vs_service *svc, const struct sk_buff *skb)
+ 		if (!(dest->flags & IP_VS_DEST_F_OVERLOAD) &&
+ 		    atomic_read(&dest->weight) > 0) {
+ 			least = dest;
+-			loh = ip_vs_wlc_dest_overhead(least);
++			loh = ip_vs_wlc_dest_overhead(least, svc);
+ 			goto nextstage;
+ 		}
+ 	}
+@@ -85,7 +86,7 @@ ip_vs_wlc_schedule(struct ip_vs_service *svc, const struct sk_buff *skb)
+ 	list_for_each_entry_continue(dest, &svc->destinations, n_list) {
+ 		if (dest->flags & IP_VS_DEST_F_OVERLOAD)
+ 			continue;
+-		doh = ip_vs_wlc_dest_overhead(dest);
++		doh = ip_vs_wlc_dest_overhead(dest, svc);
+ 		if (loh * atomic_read(&dest->weight) >
+ 		    doh * atomic_read(&least->weight)) {
+ 			least = dest;
