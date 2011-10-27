@@ -1,11 +1,12 @@
 diff --git a/include/linux/ip_vs.h b/include/linux/ip_vs.h
-index 4deb383..433f22d 100644
+index 4deb383..2d2b463 100644
 --- a/include/linux/ip_vs.h
 +++ b/include/linux/ip_vs.h
-@@ -28,6 +28,18 @@
+@@ -27,6 +27,18 @@
+ #define IP_VS_DEST_F_AVAILABLE	0x0001		/* server is available */
  #define IP_VS_DEST_F_OVERLOAD	0x0002		/* server is overloaded */
  
- /*
++ /*
 + *      Advisory flags for slow start.
 + *
 + *      The absolute value size of the weight change will be stored
@@ -17,12 +18,11 @@ index 4deb383..433f22d 100644
 +#define IP_VS_DEST_F_WEIGHT_MASK	\
 +	(IP_VS_DEST_F_WEIGHT_INC|IP_VS_DEST_F_WEIGHT_DEC)
 +
-+/*
+ /*
   *      IPVS sync daemon states
   */
- #define IP_VS_STATE_NONE	0x0000		/* daemon is stopped */
 diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-index de527d1..894ad55 100644
+index 139784e..d68d9dc 100644
 --- a/include/net/ip_vs.h
 +++ b/include/net/ip_vs.h
 @@ -673,6 +673,10 @@ struct ip_vs_dest {
@@ -66,7 +66,7 @@ index de527d1..894ad55 100644
  }
  
 diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index 5c318f7..4e0e01e 100644
+index 5c318f7..ac340ae 100644
 --- a/net/netfilter/ipvs/ip_vs_ctl.c
 +++ b/net/netfilter/ipvs/ip_vs_ctl.c
 @@ -52,6 +52,8 @@
@@ -101,7 +101,7 @@ index 5c318f7..4e0e01e 100644
  
  	/* set the weight and the flags */
  	atomic_set(&dest->weight, udest->weight);
-@@ -3472,6 +3490,134 @@ out:
+@@ -3472,6 +3490,135 @@ out:
  	return ret;
  }
  
@@ -152,7 +152,7 @@ index 5c318f7..4e0e01e 100644
 +		/* Try to avoid overflowint ss_handicap */
 +		ss_shift = atomic_read(&d->activeconns);
 +
-+		if(ss_shift & 0xffff0000)
++		if (ss_shift & 0xffff0000)
 +			ss_shift = 0xffff;
 +
 +		ss_shift = (ss_shift << 16 ) / (w & 0xffff);
@@ -174,7 +174,7 @@ index 5c318f7..4e0e01e 100644
 +		ss_shift = ss_handicap;;
 +
 +		for (i = 12; i > 0; i--) {
-+			if(ss_shift & 0x8000)
++			if (ss_shift & 0x8000)
 +				break;
 +
 +			ss_shift <<= 1;
@@ -189,6 +189,7 @@ index 5c318f7..4e0e01e 100644
 +	atomic_set(&dest->slow_start_data, ss_handicap);
 +	atomic_set(&dest->slow_start_data2, ss_shift);
 +
++#ifdef CONFIG_IP_VS_DEBUG
 +	IP_VS_DBG(1, "CONN slow_start_init: server %u.%u.%u.%u:%u "
 +			"handicap=%u (%u) shift=%u ndest=%u\n",
 +			((unsigned char *)&dest->addr)[0],
@@ -197,6 +198,7 @@ index 5c318f7..4e0e01e 100644
 +			((unsigned char *)&dest->addr)[3],
 +			ntohs(dest->port), ss_handicap,
 +			ss_handicap >> ss_shift, ss_shift, ndest);
++#endif
 +}
 +
 +inline unsigned int
@@ -204,7 +206,6 @@ index 5c318f7..4e0e01e 100644
 +		struct ip_vs_service *svc)
 +{
 +	unsigned int handicap;
-+
 +
 +	/* Set up slow_start if weight has recently changed */
 +	if (unlikely(dest->flags & IP_VS_DEST_F_WEIGHT_MASK)) {
