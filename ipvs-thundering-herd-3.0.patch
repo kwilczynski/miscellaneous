@@ -1,28 +1,28 @@
 diff --git a/include/linux/ip_vs.h b/include/linux/ip_vs.h
-index 4deb383..2d2b463 100644
+index 4deb383..1571f81 100644
 --- a/include/linux/ip_vs.h
 +++ b/include/linux/ip_vs.h
-@@ -27,6 +27,18 @@
- #define IP_VS_DEST_F_AVAILABLE	0x0001		/* server is available */
+@@ -28,6 +28,18 @@
  #define IP_VS_DEST_F_OVERLOAD	0x0002		/* server is overloaded */
  
-+ /*
+ /*
 + *      Advisory flags for slow start.
 + *
 + *      The absolute value size of the weight change will be stored
 + *      in dest->slow_start_data.  The flag and slow_start_data may
 + *      be used and modified by the scheduler to effect slow start.
 + */
-+#define IP_VS_DEST_F_WEIGHT_INC       0x0002    /* Weight has been increaced */
++#define IP_VS_DEST_F_WEIGHT_INC       0x0003    /* Weight has been increaced */
 +#define IP_VS_DEST_F_WEIGHT_DEC       0x0004    /* Weight has been increaced */
 +#define IP_VS_DEST_F_WEIGHT_MASK	\
 +	(IP_VS_DEST_F_WEIGHT_INC|IP_VS_DEST_F_WEIGHT_DEC)
 +
- /*
++/*
   *      IPVS sync daemon states
   */
+ #define IP_VS_STATE_NONE	0x0000		/* daemon is stopped */
 diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-index 139784e..d68d9dc 100644
+index de527d1..894ad55 100644
 --- a/include/net/ip_vs.h
 +++ b/include/net/ip_vs.h
 @@ -673,6 +673,10 @@ struct ip_vs_dest {

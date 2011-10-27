@@ -1,5 +1,5 @@
 diff --git a/include/linux/ip_vs.h b/include/linux/ip_vs.h
-index dfc1703..69db9b5 100644
+index dfc1703..9909bc3 100644
 --- a/include/linux/ip_vs.h
 +++ b/include/linux/ip_vs.h
 @@ -27,6 +27,18 @@
@@ -12,7 +12,7 @@ index dfc1703..69db9b5 100644
 + *      in dest->slow_start_data.  The flag and slow_start_data may
 + *      be used and modified by the scheduler to effect slow start.
 + */
-+#define IP_VS_DEST_F_WEIGHT_INC       0x0002    /* Weight has been increaced */
++#define IP_VS_DEST_F_WEIGHT_INC       0x0003    /* Weight has been increaced */
 +#define IP_VS_DEST_F_WEIGHT_DEC       0x0004    /* Weight has been increaced */
 +#define IP_VS_DEST_F_WEIGHT_MASK	\
 +	(IP_VS_DEST_F_WEIGHT_INC|IP_VS_DEST_F_WEIGHT_DEC)
@@ -48,7 +48,7 @@ index fe82b1e..b51cee5 100644
  /*
   *      IPVS sync daemon data and function prototypes
 diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index 36dc1d8..7dfd755 100644
+index 36dc1d8..afa5737 100644
 --- a/net/netfilter/ipvs/ip_vs_ctl.c
 +++ b/net/netfilter/ipvs/ip_vs_ctl.c
 @@ -51,6 +51,8 @@
@@ -83,7 +83,7 @@ index 36dc1d8..7dfd755 100644
  
  	/* set the weight and the flags */
  	atomic_set(&dest->weight, udest->weight);
-@@ -3265,6 +3283,134 @@ out:
+@@ -3265,6 +3283,136 @@ out:
  	return ret;
  }
  
@@ -134,7 +134,7 @@ index 36dc1d8..7dfd755 100644
 +		/* Try to avoid overflowint ss_handicap */
 +		ss_shift = atomic_read(&d->activeconns);
 +
-+		if(ss_shift & 0xffff0000)
++		if (ss_shift & 0xffff0000)
 +			ss_shift = 0xffff;
 +
 +		ss_shift = (ss_shift << 16 ) / (w & 0xffff);
@@ -156,7 +156,7 @@ index 36dc1d8..7dfd755 100644
 +		ss_shift = ss_handicap;;
 +
 +		for (i = 12; i > 0; i--) {
-+			if(ss_shift & 0x8000)
++			if (ss_shift & 0x8000)
 +				break;
 +
 +			ss_shift <<= 1;
@@ -171,6 +171,7 @@ index 36dc1d8..7dfd755 100644
 +	atomic_set(&dest->slow_start_data, ss_handicap);
 +	atomic_set(&dest->slow_start_data2, ss_shift);
 +
++#ifdef CONFIG_IP_VS_DEBUG
 +	IP_VS_DBG(1, "CONN slow_start_init: server %u.%u.%u.%u:%u "
 +			"handicap=%u (%u) shift=%u ndest=%u\n",
 +			((unsigned char *)&dest->addr)[0],
@@ -179,6 +180,7 @@ index 36dc1d8..7dfd755 100644
 +			((unsigned char *)&dest->addr)[3],
 +			ntohs(dest->port), ss_handicap,
 +			ss_handicap >> ss_shift, ss_shift, ndest);
++#endif
 +}
 +
 +inline unsigned int
