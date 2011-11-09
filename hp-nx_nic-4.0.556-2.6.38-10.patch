@@ -1,0 +1,179 @@
+diff -uNr a/hp-nx_nic-4.0.556/driver/unm_nic_ethtool.c b/hp-nx_nic-4.0.556/driver/unm_nic_ethtool.c
+--- a/hp-nx_nic-4.0.556/driver/unm_nic_ethtool.c	2011-07-16 03:11:05.000000000 +0100
++++ b/hp-nx_nic-4.0.556/driver/unm_nic_ethtool.c	2011-11-09 11:01:02.358612936 +0000
+@@ -1212,9 +1212,17 @@
+ }
+ #endif
+ 
+-static int unm_nic_diag_test_count(struct net_device *netdev)
++static int unm_nic_get_sset_count(struct net_device *netdev,
++	int string_set)
+ {
+-	return UNM_NIC_TEST_LEN;
++	switch(string_set) {
++	case ETH_SS_TEST:
++		return UNM_NIC_TEST_LEN;
++	case ETH_SS_STATS:
++		return UNM_NIC_STATS_LEN;
++	default:
++		return -EOPNOTSUPP;
++	}
+ }
+ 
+ static void
+@@ -1292,11 +1300,6 @@
+ 	}
+ }
+ 
+-static int unm_nic_get_stats_count(struct net_device *netdev)
+-{
+-	return UNM_NIC_STATS_LEN;
+-}
+-
+ /*
+  * NOTE: I have displayed only port's stats
+  * TBD: unm_nic_stats(struct unm_port * port) doesn't update stats
+@@ -1559,10 +1562,9 @@
+ 	.set_tso                = unm_nic_set_tso,
+ #endif
+ #endif
+-	.self_test_count	= unm_nic_diag_test_count,
+ 	.self_test		= unm_nic_diag_test,
+ 	.get_strings		= unm_nic_get_strings,
+-	.get_stats_count	= unm_nic_get_stats_count,
++	.get_sset_count		= unm_nic_get_sset_count,
+ 	.get_ethtool_stats	= unm_nic_get_ethtool_stats,
+ 	.get_coalesce		= nx_ethtool_get_intr_coalesce,
+ 	.set_coalesce		= nx_ethtool_set_intr_coalesce,
+diff -uNr a/hp-nx_nic-4.0.556/driver/unm_nic_main.c b/hp-nx_nic-4.0.556/driver/unm_nic_main.c
+--- a/hp-nx_nic-4.0.556/driver/unm_nic_main.c	2011-07-16 03:11:05.000000000 +0100
++++ b/hp-nx_nic-4.0.556/driver/unm_nic_main.c	2011-11-09 10:59:22.138612953 +0000
+@@ -5063,7 +5063,7 @@
+ {
+ 	struct unm_adapter_s *adapter = netdev_priv(netdev);
+ 	mac_list_t *cur, *next, *del_list, *add_list = NULL;
+-	struct dev_mc_list *mc_ptr;
++	struct netdev_hw_addr *ha;
+ 	__u8 bcast_addr[ETH_ALEN] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
+ 	__uint32_t mode = VPORT_MISS_MODE_DROP;
+ 
+@@ -5087,15 +5087,15 @@
+ 	}
+ 
+ 	if ((netdev->flags & IFF_ALLMULTI) ||
+-	    netdev->mc_count > adapter->max_mc_count) {
++	    netdev_mc_count(netdev) > adapter->max_mc_count) {
+ 		mode = VPORT_MISS_MODE_ACCEPT_MULTI;
+ 		goto send_fw_cmd;
+ 	}
+ 
+-	if (netdev->mc_count > 0) {
+-		for (mc_ptr = netdev->mc_list; mc_ptr; mc_ptr = mc_ptr->next) {
++	if (netdev_mc_count(netdev) > 0) {
++		netdev_for_each_mc_addr(ha, netdev) {
+ 
+-			nx_nic_p3_add_mac(adapter, mc_ptr->dmi_addr,
++			nx_nic_p3_add_mac(adapter, ha->addr,
+ 					  &add_list, &del_list);
+ 		}
+ 	}
+@@ -5125,12 +5125,12 @@
+ static void nx_nic_p2_set_multi(struct net_device *netdev)
+ {
+ 	struct unm_adapter_s *adapter = netdev_priv(netdev);
+-	struct dev_mc_list *mc_ptr;
++	struct netdev_hw_addr *ha;
+ 	__u8 null_addr[6] = { 0, 0, 0, 0, 0, 0 };
+ 	int index = 0;
+ 
+ 	if (netdev->flags & IFF_PROMISC ||
+-	    netdev->mc_count > adapter->max_mc_count) {
++	    netdev_mc_count(netdev) > adapter->max_mc_count) {
+ 
+ 		unm_nic_set_promisc_mode(adapter);
+ 
+@@ -5140,7 +5140,7 @@
+ 		return;
+ 	}
+ 
+-	if (netdev->mc_count == 0) {
++	if (netdev_mc_count(netdev) == 0) {
+ 		unm_nic_unset_promisc_mode(adapter);
+ 		unm_nic_disable_mcast_filter(adapter);
+ 		return;
+@@ -5149,10 +5149,10 @@
+ 	unm_nic_set_promisc_mode(adapter);
+ 	unm_nic_enable_mcast_filter(adapter);
+ 
+-	for (mc_ptr = netdev->mc_list; mc_ptr; mc_ptr = mc_ptr->next, index++)
+-		unm_nic_set_mcast_addr(adapter, index, mc_ptr->dmi_addr);
++	netdev_for_each_mc_addr(ha, netdev)
++		unm_nic_set_mcast_addr(adapter, index, ha->addr);
+ 
+-	if (index != netdev->mc_count) {
++	if (index != netdev_mc_count(netdev)) {
+ 		nx_nic_print4(adapter, "Multicast address count mismatch\n");
+ 	}
+ 
+diff -uNr a/hp-nx_nic-4.0.556/nx_xport/nx_pci_xport.c b/hp-nx_nic-4.0.556/nx_xport/nx_pci_xport.c
+--- a/hp-nx_nic-4.0.556/nx_xport/nx_pci_xport.c	2011-07-16 03:11:06.000000000 +0100
++++ b/hp-nx_nic-4.0.556/nx_xport/nx_pci_xport.c	2011-11-09 11:26:27.548612689 +0000
+@@ -185,7 +185,7 @@
+ 	llseek: 	NULL,
+ 	owner:          THIS_MODULE,
+ 	open:           nx_pci_open,
+-	ioctl:		nx_xport_ioctl,
++	unlocked_ioctl: nx_xport_ioctl,
+ 	release:	nx_pci_release,
+ };
+ 
+diff -uNr a/hp-nx_nic-4.0.556/nx_xport/nx_xport.h b/hp-nx_nic-4.0.556/nx_xport/nx_xport.h
+--- a/hp-nx_nic-4.0.556/nx_xport/nx_xport.h	2011-07-16 03:11:06.000000000 +0100
++++ b/hp-nx_nic-4.0.556/nx_xport/nx_xport.h	2011-11-09 11:30:40.938612649 +0000
+@@ -376,8 +376,7 @@
+ 	adapter->unm_nic_hw_read_wx(adapter, index, value, 4);
+ }
+ 
+-int nx_xport_ioctl(struct inode *inode, struct file *file,
+-              unsigned int cmd, unsigned long u_data);
++long nx_xport_ioctl(struct file *file, unsigned int cmd, unsigned long u_data);
+ 
+ 
+ /* Functions available from unm_nic_hw.c */
+diff -uNr a/hp-nx_nic-4.0.556/nx_xport/nx_xport_tool.c b/hp-nx_nic-4.0.556/nx_xport/nx_xport_tool.c
+--- a/hp-nx_nic-4.0.556/nx_xport/nx_xport_tool.c	2011-07-16 03:11:06.000000000 +0100
++++ b/hp-nx_nic-4.0.556/nx_xport/nx_xport_tool.c	2011-11-09 11:32:15.758612633 +0000
+@@ -61,6 +61,7 @@
+ #include <asm/types.h>
+ #include <asm/uaccess.h>
+ #include <linux/kernel.h>
++#include <linux/smp_lock.h>
+ 
+ #include "nx_xport.h"
+ #include "nic_phan_reg.h"
+@@ -256,14 +257,16 @@
+  * nx_xport_ioctl ()    We provide the tcl/phanmon support through these
+  * ioctls.
+  */
+-int nx_xport_ioctl(struct inode *inode, struct file *file,
+-              unsigned int cmd, unsigned long u_data)
++long nx_xport_ioctl(struct file *file, unsigned int cmd, unsigned long u_data)
+ {
+ 	int err = 0;
+ 
+ //        printk("doing ioctl\n");
+ 
++	lock_kernel();
++
+ 	if (!capable(CAP_NET_ADMIN))
++		unlock_kernel();
+ 		return -EPERM;
+ 
+         switch (cmd) {
+@@ -276,5 +279,6 @@
+ 		break;
+ 	}
+ 
++	unlock_kernel();
+ 	return err;
+ }
