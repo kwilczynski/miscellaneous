@@ -1,26 +1,26 @@
 diff --git a/include/linux/ip_vs.h b/include/linux/ip_vs.h
-index 4deb383..1571f81 100644
+index 4deb383..3d4e7af 100644
 --- a/include/linux/ip_vs.h
 +++ b/include/linux/ip_vs.h
-@@ -28,6 +28,18 @@
+@@ -27,6 +27,18 @@
+ #define IP_VS_DEST_F_AVAILABLE	0x0001		/* server is available */
  #define IP_VS_DEST_F_OVERLOAD	0x0002		/* server is overloaded */
  
- /*
++ /*
 + *      Advisory flags for slow start.
 + *
 + *      The absolute value size of the weight change will be stored
 + *      in dest->slow_start_data.  The flag and slow_start_data may
 + *      be used and modified by the scheduler to effect slow start.
 + */
-+#define IP_VS_DEST_F_WEIGHT_INC       0x0003    /* Weight has been increaced */
-+#define IP_VS_DEST_F_WEIGHT_DEC       0x0004    /* Weight has been increaced */
++#define IP_VS_DEST_F_WEIGHT_INC       0x0004    /* Weight has been increaced */
++#define IP_VS_DEST_F_WEIGHT_DEC       0x0008    /* Weight has been increaced */
 +#define IP_VS_DEST_F_WEIGHT_MASK	\
 +	(IP_VS_DEST_F_WEIGHT_INC|IP_VS_DEST_F_WEIGHT_DEC)
 +
-+/*
+ /*
   *      IPVS sync daemon states
   */
- #define IP_VS_STATE_NONE	0x0000		/* daemon is stopped */
 diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
 index de527d1..894ad55 100644
 --- a/include/net/ip_vs.h
@@ -66,27 +66,26 @@ index de527d1..894ad55 100644
  }
  
 diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index 5c318f7..ac340ae 100644
+index 5c318f7..85ecc88 100644
 --- a/net/netfilter/ipvs/ip_vs_ctl.c
 +++ b/net/netfilter/ipvs/ip_vs_ctl.c
 @@ -52,6 +52,8 @@
  
  #include <net/ip_vs.h>
  
-+EXPORT_SYMBOL(ip_vs_conn_slow_start_dest_handicap);
++EXPORT_SYMBOL_GPL(ip_vs_conn_slow_start_dest_handicap);
 +
  /* semaphore for IPVS sockopts. And, [gs]etsockopt may sleep. */
  static DEFINE_MUTEX(__ip_vs_mutex);
  
-@@ -764,6 +766,22 @@ __ip_vs_update_dest(struct ip_vs_service *svc, struct ip_vs_dest *dest,
+@@ -764,6 +766,21 @@ __ip_vs_update_dest(struct ip_vs_service *svc, struct ip_vs_dest *dest,
  {
  	struct netns_ipvs *ipvs = net_ipvs(svc->net);
  	int conn_flags;
 +	int old_weight;
 +
 +	/* set hints for slow start */
-+	dest->flags |= IP_VS_DEST_F_WEIGHT_MASK;
-+	dest->flags ^= IP_VS_DEST_F_WEIGHT_MASK;
++	dest->flags &= ~IP_VS_DEST_F_WEIGHT_MASK;
 +
 +	old_weight = atomic_read(&dest->weight);
 +
@@ -101,7 +100,7 @@ index 5c318f7..ac340ae 100644
  
  	/* set the weight and the flags */
  	atomic_set(&dest->weight, udest->weight);
-@@ -3472,6 +3490,135 @@ out:
+@@ -3472,6 +3489,130 @@ out:
  	return ret;
  }
  
@@ -123,7 +122,9 @@ index 5c318f7..ac340ae 100644
 +
 +	if((dest->flags & IP_VS_DEST_F_WEIGHT_DEC) ||
 +			!(dest_w = atomic_read(&dest->weight))) {
-+		IP_VS_DBG(1, "slow_start: null\n");
++#ifdef CONFIG_IP_VS_DEBUG
++		IP_VS_DBG(1, "CONN slow_start: null\n");
++#endif
 +		atomic_set(&dest->slow_start_data, 0);
 +		atomic_set(&dest->slow_start_data2, 0);
 +		return;
@@ -190,14 +191,11 @@ index 5c318f7..ac340ae 100644
 +	atomic_set(&dest->slow_start_data2, ss_shift);
 +
 +#ifdef CONFIG_IP_VS_DEBUG
-+	IP_VS_DBG(1, "CONN slow_start_init: server %u.%u.%u.%u:%u "
-+			"handicap=%u (%u) shift=%u ndest=%u\n",
-+			((unsigned char *)&dest->addr)[0],
-+			((unsigned char *)&dest->addr)[1],
-+			((unsigned char *)&dest->addr)[2],
-+			((unsigned char *)&dest->addr)[3],
-+			ntohs(dest->port), ss_handicap,
-+			ss_handicap >> ss_shift, ss_shift, ndest);
++	IP_VS_DBG_BUF(1, "CONN slow_start_init: server %s:%u "
++		"handicap=%u (%u) shift=%u ndest=%u\n",
++		IP_VS_DBG_ADDR(dest->af, &dest->addr),
++		ntohs(dest->port), ss_handicap,
++		ss_handicap >> ss_shift, ss_shift, ndest);
 +#endif
 +}
 +
@@ -210,8 +208,7 @@ index 5c318f7..ac340ae 100644
 +	/* Set up slow_start if weight has recently changed */
 +	if (unlikely(dest->flags & IP_VS_DEST_F_WEIGHT_MASK)) {
 +		__ip_vs_conn_set_slow_start(dest, svc);
-+		dest->flags |= IP_VS_DEST_F_WEIGHT_MASK;
-+		dest->flags ^= IP_VS_DEST_F_WEIGHT_MASK;
++		dest->flags &= ~IP_VS_DEST_F_WEIGHT_MASK;
 +	}
 +
 +	handicap = atomic_read(&dest->slow_start_data);
@@ -224,12 +221,9 @@ index 5c318f7..ac340ae 100644
 +
 +#ifdef CONFIG_IP_VS_DEBUG
 +	if (unlikely(!handicap))
-+		IP_VS_DBG(1, "CONN slow_start_end: server %u.%u.%u.%u:%u\n",
-+				((unsigned char *)&dest->addr)[0],
-+				((unsigned char *)&dest->addr)[1],
-+				((unsigned char *)&dest->addr)[2],
-+				((unsigned char *)&dest->addr)[3],
-+				ntohs(dest->port));
++		IP_VS_DBG_BUF(1, "CONN slow_start_end: server %s:%u ",
++			IP_VS_DBG_ADDR(dest->af, &dest->addr),
++			ntohs(dest->port));
 +#endif
 +
 +	return handicap >> atomic_read(&dest->slow_start_data2);
