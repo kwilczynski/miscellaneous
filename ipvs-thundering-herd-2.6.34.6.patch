@@ -1,5 +1,5 @@
 diff --git a/include/linux/ip_vs.h b/include/linux/ip_vs.h
-index dfc1703..9909bc3 100644
+index dfc1703..4a1812e 100644
 --- a/include/linux/ip_vs.h
 +++ b/include/linux/ip_vs.h
 @@ -27,6 +27,18 @@
@@ -12,8 +12,8 @@ index dfc1703..9909bc3 100644
 + *      in dest->slow_start_data.  The flag and slow_start_data may
 + *      be used and modified by the scheduler to effect slow start.
 + */
-+#define IP_VS_DEST_F_WEIGHT_INC       0x0003    /* Weight has been increaced */
-+#define IP_VS_DEST_F_WEIGHT_DEC       0x0004    /* Weight has been increaced */
++#define IP_VS_DEST_F_WEIGHT_INC       0x0004    /* Weight has been increaced */
++#define IP_VS_DEST_F_WEIGHT_DEC       0x0008    /* Weight has been increaced */
 +#define IP_VS_DEST_F_WEIGHT_MASK	\
 +	(IP_VS_DEST_F_WEIGHT_INC|IP_VS_DEST_F_WEIGHT_DEC)
 +
@@ -48,27 +48,26 @@ index fe82b1e..b51cee5 100644
  /*
   *      IPVS sync daemon data and function prototypes
 diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index 36dc1d8..afa5737 100644
+index 36dc1d8..eb18468 100644
 --- a/net/netfilter/ipvs/ip_vs_ctl.c
 +++ b/net/netfilter/ipvs/ip_vs_ctl.c
 @@ -51,6 +51,8 @@
  
  #include <net/ip_vs.h>
  
-+EXPORT_SYMBOL(ip_vs_conn_slow_start_dest_handicap);
++EXPORT_SYMBOL_GPL(ip_vs_conn_slow_start_dest_handicap);
 +
  /* semaphore for IPVS sockopts. And, [gs]etsockopt may sleep. */
  static DEFINE_MUTEX(__ip_vs_mutex);
  
-@@ -762,6 +764,22 @@ __ip_vs_update_dest(struct ip_vs_service *svc,
+@@ -762,6 +764,21 @@ __ip_vs_update_dest(struct ip_vs_service *svc,
  		    struct ip_vs_dest *dest, struct ip_vs_dest_user_kern *udest)
  {
  	int conn_flags;
 +	int old_weight;
 +
 +	/* set hints for slow start */
-+	dest->flags |= IP_VS_DEST_F_WEIGHT_MASK;
-+	dest->flags ^= IP_VS_DEST_F_WEIGHT_MASK;
++	dest->flags &= ~IP_VS_DEST_F_WEIGHT_MASK;
 +
 +	old_weight = atomic_read(&dest->weight);
 +
@@ -83,7 +82,7 @@ index 36dc1d8..afa5737 100644
  
  	/* set the weight and the flags */
  	atomic_set(&dest->weight, udest->weight);
-@@ -3265,6 +3283,136 @@ out:
+@@ -3265,6 +3282,131 @@ out:
  	return ret;
  }
  
@@ -105,7 +104,9 @@ index 36dc1d8..afa5737 100644
 +
 +	if((dest->flags & IP_VS_DEST_F_WEIGHT_DEC) ||
 +			!(dest_w = atomic_read(&dest->weight))) {
-+		IP_VS_DBG(1, "slow_start: null\n");
++#ifdef CONFIG_IP_VS_DEBUG
++		IP_VS_DBG(1, "CONN slow_start: null\n");
++#endif
 +		atomic_set(&dest->slow_start_data, 0);
 +		atomic_set(&dest->slow_start_data2, 0);
 +		return;
@@ -172,14 +173,11 @@ index 36dc1d8..afa5737 100644
 +	atomic_set(&dest->slow_start_data2, ss_shift);
 +
 +#ifdef CONFIG_IP_VS_DEBUG
-+	IP_VS_DBG(1, "CONN slow_start_init: server %u.%u.%u.%u:%u "
-+			"handicap=%u (%u) shift=%u ndest=%u\n",
-+			((unsigned char *)&dest->addr)[0],
-+			((unsigned char *)&dest->addr)[1],
-+			((unsigned char *)&dest->addr)[2],
-+			((unsigned char *)&dest->addr)[3],
-+			ntohs(dest->port), ss_handicap,
-+			ss_handicap >> ss_shift, ss_shift, ndest);
++	IP_VS_DBG_BUF(1, "CONN slow_start_init: server %s:%u "
++		"handicap=%u (%u) shift=%u ndest=%u\n",
++		IP_VS_DBG_ADDR(dest->af, &dest->addr),
++		ntohs(dest->port), ss_handicap,
++		ss_handicap >> ss_shift, ss_shift, ndest);
 +#endif
 +}
 +
@@ -193,8 +191,7 @@ index 36dc1d8..afa5737 100644
 +	/* Set up slow_start if weight has recently changed */
 +	if (unlikely(dest->flags & IP_VS_DEST_F_WEIGHT_MASK)) {
 +		__ip_vs_conn_set_slow_start(dest, svc);
-+		dest->flags |= IP_VS_DEST_F_WEIGHT_MASK;
-+		dest->flags ^= IP_VS_DEST_F_WEIGHT_MASK;
++		dest->flags &= ~IP_VS_DEST_F_WEIGHT_MASK;
 +	}
 +
 +	handicap = atomic_read(&dest->slow_start_data);
@@ -207,12 +204,9 @@ index 36dc1d8..afa5737 100644
 +
 +#ifdef CONFIG_IP_VS_DEBUG
 +	if (unlikely(!handicap))
-+		IP_VS_DBG(1, "CONN slow_start_end: server %u.%u.%u.%u:%u\n",
-+				((unsigned char *)&dest->addr)[0],
-+				((unsigned char *)&dest->addr)[1],
-+				((unsigned char *)&dest->addr)[2],
-+				((unsigned char *)&dest->addr)[3],
-+				ntohs(dest->port));
++		IP_VS_DBG_BUF(1, "CONN slow_start_end: server %s:%u ",
++			IP_VS_DBG_ADDR(dest->af, &dest->addr),
++			ntohs(dest->port));
 +#endif
 +
 +	return handicap >> atomic_read(&dest->slow_start_data2);
