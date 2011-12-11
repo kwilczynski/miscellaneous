@@ -37,14 +37,14 @@ Usage:
 
   Options:
 
-    --host     -h  <HOST NAME>      Required.  Specify the remote HA Proxy to connect to.
+    --host     -h  <HOST NAME>     Required.  Specify the remote HA Proxy to connect to.
 
-    --backend  -b  <BACKEND NAME>   Required.  Specify the back-end pool name for which to fetch the input and output byte counters.
+    --backend  -b  <BACKEND NAME>  Required.  Specify the back-end pool name for which to fetch the input and output byte counters.
 
-    --port     -p  <PORT NUMBER>    Optional.  Specify a port on the remote host to use when establishing a connection.
-                                               By default this is set to be #{DEFAULT_PORT}.
+    --port     -p  <PORT NUMBER>   Optional.  Specify a port on the remote host to use when establishing a connection.
+                                              By default this is set to be #{DEFAULT_PORT}.
 
-    --help   -h                     This help screen.
+    --help   -h                    This help screen.
 
   EOS
 
