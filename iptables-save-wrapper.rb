@@ -18,10 +18,11 @@
 
 require 'getoptlong'
 
+# The default location on most modern Linux distributions ...
 IPTABLES_SAVE_BINARY  = '/sbin/iptables-save'
 IPTABLES6_SAVE_BINARY = '/sbin/ip6tables-save'
 
-SUPPORTED_TABLES = %w( filter nat mangle raw )
+SUPPORTED_TABLES = %w(filter nat mangle raw)
 COUNTERS_PATTERN = '^:(.+)\s\[\d+:\d+\]'
 
 def die(message, exit_code=1, with_new_line=true)
@@ -55,7 +56,7 @@ Currently the order is:
 
 Usage:
 
-  #{$0} [--clear-counters] [--clear-output] [--help]
+  #{$0} [--ipv4] [--ipv6] [--clear-counters] [--clear-output] [--help]
 
   Options:
 
@@ -89,7 +90,7 @@ if $0 == __FILE__
   # Which tables do we support?  Default to IPv4 ones ...
   tables = SUPPORTED_TABLES
 
-  # Which networking type was choosen?
+  # Which networking type was chosen?
   network_IPv4 = false
   network_IPv6 = false
 
@@ -145,7 +146,7 @@ if $0 == __FILE__
 
   tables.each do |name|
     # Grab and process output for a particular table ...
-    %x{ #{binary} -t #{name} }.each_line do |line|
+    %x{#{binary} -t #{name}}.each_line do |line|
       # Remove bloat ...
       line.strip!
 
