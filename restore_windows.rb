@@ -20,7 +20,7 @@ WINDOW_STATE_PROPERTY = '_NET_WM_STATE_HIDDEN'
 # We need to have these two to be able to do the job ...
 exit(1) unless File.exists?(WM_CTRL_BINARY) and File.exists?(XPROP_BINARY)
 
-%x{ #{WM_CTRL_BINARY} -l }.each_line do |l|
+%x{#{WM_CTRL_BINARY} -l}.each_line do |l|
   # Remove bloat ...
   l.strip!
 
@@ -30,7 +30,7 @@ exit(1) unless File.exists?(WM_CTRL_BINARY) and File.exists?(XPROP_BINARY)
     result = %x{ #{XPROP_BINARY} -id #{window} #{WINDOW_STATE_ATOM} }
 
     if result.match(/#{WINDOW_STATE_PROPERTY}/)
-      %x{ #{WM_CTRL_BINARY} -i -a #{window} &> /dev/null }
+      %x{#{WM_CTRL_BINARY} -i -a #{window} &> /dev/null}
     end
   end
 end
