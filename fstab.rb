@@ -145,15 +145,21 @@ if $0 == __FILE__
     # Remove unwanted double-quotes ...
     line.tr!('"', '')
 
-    entries = line.split(/\s+/)
+    # We need to capture "LABEL" and/or "UUID" fields here ...
+    if match = line.match(/^(.+):\s+UUID=(.+)\s+/)
+      device = match[1]
+      uuid   = match[2]
 
-    # Remove unwanted colon at the end of the device name ...
-    device = entries[0].tr(':', '')
+      # We have no "LABEL" in this case ...
+      devices[device] = { :label => nil, :uuid => uuid }
+    elsif match = line.match(/^(.+):\s+LABEL=(.+)\s+UUID=(.+)\s+/)
+      device = match[1]
+      label  = match[2]
+      uuid   = match[3]
 
-    # We only want the actual UUID ...
-    uuid = entries[1].split('=')[1]
-
-    devices[device] = uuid
+      # We have both "LABEL" and "UUID" right now ...
+      devices[device] = { :label => label, :uuid => uuid }
+    end
   end
 
   # Grab and process content of the "/etc/fstab" file ...
@@ -164,16 +170,38 @@ if $0 == __FILE__
     # Skip comments, new and empty lines ...
     next if line.match(/^(\r\n|\n|\s*)$|^$|^#/)
 
+    # We store name of the underlying device here temporarily ...
+    device = ''
+
     entries = line.split(/\s+/)
 
     if entries[0].match(/^UUID/)
-      # We only want the actual UUID ...
-      uuid   = entries[0].split('=')[1]
-      device = devices.invert[uuid]
+      # We only want the actual UUID identifier ...
+      uuid = entries[0].split('=')[1]
+
+      devices.each do |k,v|
+        if v[:uuid] == uuid
+          # Both UUID identifiers match ..?  First match wins ...
+          device = k
+          break
+        end
+      end
+    elsif entries[0].match(/^LABEL/)
+      # We only want the actual label ...
+      label = entries[0].split('=')[1]
+
+      devices.each do |k,v|
+        if v[:label] == label
+          # Both labels match ..?  First match wins ...
+          device = k
+          uuid   = v[:uuid]
+          break
+        end
+      end
     else
-      # The uuid may not exist for some of the entries i.e. NFS mounts, etc ...
+      # The UUID identifier will not exist for entries like i.e. NFS mounts, etc ...
       device = entries[0]
-      uuid   = devices[device]
+      uuid   = devices[device] ? devices[device][:uuid] : nil
     end
 
     # We turn file system list and options into an array ...
