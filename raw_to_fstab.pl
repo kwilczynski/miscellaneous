@@ -47,9 +47,9 @@ while (my $line = <BLKID>)
   if ($line =~ /^(?<device>[a-zA-Z\/]+):\sUUID="(?<uuid>.+)"\sTYPE="(?<type>.+)"/)
   {
     print "# $+{device}\nUUID=$+{uuid} $mount_point/dev${count} $+{type} $mount_options 0 0\n";
-  }
 
-  $count += 1;
+    $count += 1;
+  }
 }
 
 close(BLKID);
