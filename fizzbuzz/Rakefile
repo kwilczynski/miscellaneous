@@ -1,9 +1,0 @@
-require 'rake/testtask'
-
-Rake::TestTask.new do |t|
-  t.libs << 'lib'
-end
-
-desc "Run FizzBizz tests"
-task :default => :test
-
