@@ -4,7 +4,7 @@ require 'fizzbuzz'
 class BizzBuzz_Test < Test::Unit::TestCase
   def test_fizzbuzz_for_fizzbuzz
     fb = FizzBuzz.new(15)
-    assert_equal(fb.to_a[15], 'FizzBuzz')
+    assert_equal(fb.to_a[14], 'FizzBuzz')
   end
 
   def test_fizzbuzz_to_a
