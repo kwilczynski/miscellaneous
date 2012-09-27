@@ -3,7 +3,7 @@ require 'fizzbuzz'
 
 class BizzBuzz_Test < Test::Unit::TestCase
   def test_fizzbuzz_for_fizzbuzz
-    fb = FizzBuzz.new(10)
+    fb = FizzBuzz.new(15)
     assert_equal(fb.to_a[15], 'FizBuzz')
   end
 
