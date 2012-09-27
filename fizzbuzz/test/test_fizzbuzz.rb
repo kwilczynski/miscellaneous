@@ -3,9 +3,23 @@ require 'fizzbuzz'
 
 class BizzBuzz_Test < Test::Unit::TestCase
   def test_fizzbuzz_to_a
-    results = [1, 2, 'Fizz', 4, 'Buzz', 'Fizz', 7, 8, 'Fizz', 'Buzz']
     fb = FizzBuzz.new(10)
-    assert_equal(fb.to_a, results)
+    assert_equal(fb.to_a[15], 'FizBuzz')
+  end
+
+  def test_fizzbuzz_to_a
+    expected = [1, 2, 'Fizz', 4, 'Buzz', 'Fizz', 7, 8, 'Fizz', 'Buzz']
+    fb = FizzBuzz.new(10)
+    assert_equal(fb.to_a, expected)
+  end
+
+  def test_fizzbuzz_each
+    obtainted = []
+    expected  = [1, 2, 'Fizz', 4, 'Buzz', 'Fizz', 7, 8, 'Fizz', 'Buzz']
+
+    fb = FizzBuzz.new(10)
+    fb.each {|i| obtainted << i }
+    assert_equal(obtainted, expected)
   end
 
   def test_fizzbuzz_type_error

@@ -78,17 +78,17 @@ calculate_fizzbuzz(VALUE object, return_t type)
   }
 
   for (i = 1; i <= size; i++) {
-    if (i % 3 == 0) {
-      WANT_ARRAY(type) ? rb_ary_push(array, rb_str_new2(words[0]))
-                       : rb_yield(rb_str_new2(words[0]));
+    if (i % 15 == 0) {
+      WANT_ARRAY(type) ? rb_ary_push(array, rb_str_new2(words[2]))
+                       : rb_yield(rb_str_new2(words[2]));
     }
     else if (i % 5 == 0) {
       WANT_ARRAY(type) ? rb_ary_push(array, rb_str_new2(words[1]))
                        : rb_yield(rb_str_new2(words[1]));
     }
-    else if (i % 15 == 0) {
-      WANT_ARRAY(type) ? rb_ary_push(array, rb_str_new2(words[2]))
-                       : rb_yield(rb_str_new2(words[2]));
+    else if (i % 3 == 0) {
+      WANT_ARRAY(type) ? rb_ary_push(array, rb_str_new2(words[0]))
+                       : rb_yield(rb_str_new2(words[0]));
     }
     else {
       WANT_ARRAY(type) ? rb_ary_push(array, INT2FIX(i))
