@@ -8,10 +8,13 @@
 #
 
 class BrainFuck
-  class ParsingError < StandardError ; end
+  class ParsingError < StandardError; end
+  class OutOfMemoryError < StandardError; end
+  class AccessViolationError < StandardError; end
 
   class Memory
     MEMORY_SIZE = 30000
+    VALUE_SIZE = 255
 
     def initialize
       reset
@@ -19,18 +22,22 @@ class BrainFuck
 
     def increment
       @memory[@pointer] += 1
+      @memory[@pointer] = 0 if @memory[@pointer] > VALUE_SIZE
     end
 
     def decrement
       @memory[@pointer] -= 1
+      @memory[@pointer] = VALUE_SIZE if @memory[@pointer] < 0
     end
 
     def forward
-      @pointer = (@pointer + 1) % MEMORY_SIZE
+      @pointer += 1
+      raise OutOfMemoryError, 'Out of memory' if @pointer > MEMORY_SIZE
     end
 
     def backward
-      @pointer = (@pointer - 1) % MEMORY_SIZE
+      @pointer -= 1
+      raise AccessViolationError, 'Memory access violation' if @pointer < 0
     end
 
     def store(value)
@@ -44,52 +51,53 @@ class BrainFuck
     def reset
       @pointer = 0
       @memory.clear if @memory
-      @memory  = Array.new(MEMORY_SIZE, 0)
-      self
+      @memory = Array.new(MEMORY_SIZE, 0)
     end
   end
 
   def initialize
-    @loops_index  = {}
+    @loops = {}
     @instructions = []
-
-    @instruction_pointer = 0
+    @pointer = 0
 
     @memory = BrainFuck::Memory.new
+    @operands = Array.new(256, nil)
 
-    @operands = {
-      '+' => lambda { @memory.increment     },
-      '-' => lambda { @memory.decrement     },
-      '>' => lambda { @memory.forward       },
-      '<' => lambda { @memory.backward      },
-      ',' => lambda { store_character       },
-      '.' => lambda { print_character       },
-      '[' => lambda { evaluate_loop(:open)  },
-      ']' => lambda { evaluate_loop(:close) }
+    @operands['+'.ord] = lambda { @memory.increment }
+    @operands['-'.ord] = lambda { @memory.decrement }
+    @operands['>'.ord] = lambda { @memory.forward   }
+    @operands['<'.ord] = lambda { @memory.backward  }
+    @operands[','.ord] = lambda { store_character   }
+    @operands['.'.ord] = lambda { print_character   }
+
+    @operands['['.ord] = lambda {
+      @pointer = @loops[@pointer] if @memory.retrieve == 0
+    }
+    @operands[']'.ord] = lambda {
+      @pointer = @loops[@pointer] - 1 if @memory.retrieve > 0
+    }
+
+    @filter = {
+      '+' => true, '-' => true,
+      '>' => true, '<' => true,
+      ',' => true, '.' => true,
+      '[' => true, ']' => true,
     }
   end
 
   def evaluate(instructions)
     raise ParsingError, 'Empty instruction set given' if instructions.size == 0
 
-    instructions.split("\n").each do |line|
-      line.strip!
+    instructions.split(//).each {|i| @instructions << i.ord if @filter[i] }
 
-      next if line.match(/^$/)
+    index_loops
 
-      line = line.split('')
-      line.each {|i| @instructions << i if @operands[i] }
-    end
-
-    index_loops(@instructions)
-
-    while @instruction_pointer < @instructions.size
-      @operands.fetch(@instructions[@instruction_pointer]).call
-      @instruction_pointer += 1
+    while @pointer < @instructions.size
+      @operands[@instructions[@pointer].ord].call
+      @pointer += 1
     end
 
     reset
-    self
   end
 
   def inspect
@@ -97,11 +105,10 @@ class BrainFuck
   end
 
   def reset
-    @instruction_pointer = 0
+    @pointer = 0
     @instructions.clear
-    @loops_index.clear
+    @loops.clear
     @memory.reset
-    self
   end
 
   private
@@ -115,23 +122,15 @@ class BrainFuck
     print "%c" % @memory.retrieve
   end
 
-  def evaluate_loop(type)
-    if type == :open and @memory.retrieve == 0
-      @instruction_pointer = @loops_index[@instruction_pointer]
-    elsif type == :close and @memory.retrieve > 0
-      @instruction_pointer = @loops_index[@instruction_pointer] - 1
-    end
-  end
-
-  def index_loops(instructions)
+  def index_loops
     loops    = []
     position = 0
 
-    instructions.each_with_index do |value,i|
+    @instructions.each_with_index do |value,i|
       case value
-      when '['
+      when '['.ord
         loops << i
-      when ']'
+      when ']'.ord
         if loops.size == 0
           raise ParsingError, "Parsing error: ']' without matching '[' " +
             "given (position: #{i + 1})"
@@ -139,8 +138,7 @@ class BrainFuck
 
         index = loops.pop
 
-        @loops_index[i]     = index
-        @loops_index[index] = i
+        @loops[i], @loops[index] = index, i
       end
     end
 
@@ -150,8 +148,6 @@ class BrainFuck
     end
 
     loops.clear
-
-    instructions
   end
 end
 
@@ -159,54 +155,57 @@ if $0 == __FILE__
   Kernel.trap('SIGINT') { exit }
 
   b = BrainFuck.new
-  
-  # Will print "Hello World!" ...
-  b.evaluate <<-EOS
-    ++++++++++[>+++++++>++++++++++>+++>+<<<<-]
-    >++.>+.+++++++..+++.>++.<<+++++++++++++++.
-    >.+++.------.--------.>+.>.
-  EOS
 
-  # Will draw nice Sierpinski's Triangle (from the Internet) ...
-  b.evaluate <<-EOS
-                                >    
-                               + +    
-                              +   +    
-                             [ < + +    
-                            +       +    
-                           + +     + +    
-                          >   -   ]   >    
-                         + + + + + + + +    
-                        [               >    
-                       + +             + +    
-                      <   -           ]   >    
-                     > + + >         > > + >    
-                    >       >       +       <    
-                   < <     < <     < <     < <    
-                  <   [   -   [   -   >   +   <    
-                 ] > [ - < + > > > . < < ] > > >    
-                [                               [    
-               - >                             + +    
-              +   +                           +   +    
-             + + [ >                         + + + +    
-            <       -                       ]       >    
-           . <     < [                     - >     + <    
-          ]   +   >   [                   -   >   +   +    
-         + + + + + + + +                 < < + > ] > . [    
-        -               ]               >               ]    
-       ] +             < <             < [             - [    
-      -   >           +   <           ]   +           >   [    
-     - < + >         > > - [         - > + <         ] + + >    
-    [       -       <       -       >       ]       <       <    
-   < ]     < <     < <     ] +     + +     + +     + +     + +    
-  +   .   +   +   +   .   [   -   ]   <   ]   +   +   +   +   + 
-  EOS
+#  # Will print "Hello World!" ...
+#  b.evaluate <<-EOS
+#    ++++++++++[>+++++++>++++++++++>+++>+<<<<-]
+#    >++.>+.+++++++..+++.>++.<<+++++++++++++++.
+#    >.+++.------.--------.>+.>.
+#  EOS
+#
+#  # Will draw nice Sierpinski's Triangle (from the Internet) ...
+#  b.evaluate <<-EOS
+#                                >
+#                               + +
+#                              +   +
+#                             [ < + +
+#                            +       +
+#                           + +     + +
+#                          >   -   ]   >
+#                         + + + + + + + +
+#                        [               >
+#                       + +             + +
+#                      <   -           ]   >
+#                     > + + >         > > + >
+#                    >       >       +       <
+#                   < <     < <     < <     < <
+#                  <   [   -   [   -   >   +   <
+#                 ] > [ - < + > > > . < < ] > > >
+#                [                               [
+#               - >                             + +
+#              +   +                           +   +
+#             + + [ >                         + + + +
+#            <       -                       ]       >
+#           . <     < [                     - >     + <
+#          ]   +   >   [                   -   >   +   +
+#         + + + + + + + +                 < < + > ] > . [
+#        -               ]               >               ]
+#       ] +             < <             < [             - [
+#      -   >           +   <           ]   +           >   [
+#     - < + >         > > - [         - > + <         ] + + >
+#    [       -       <       -       >       ]       <       <
+#   < ]     < <     < <     ] +     + +     + +     + +     + +
+#  +   .   +   +   +   .   [   -   ]   <   ]   +   +   +   +   +
+#  EOS
 
-  # Will echo any character typed in the console ... 
+  # Will echo any character typed in the console ...
   #b.evaluate(',+[-.,+]')
 
   # Will perform an integer addition (single digits only; very limited) ...
   #b.evaluate(',>++++++[<-------->-],,[<+>-]<.')
+
+  # Will read instructions from the file ...
+  b.evaluate(File.read(ARGV.shift || exit))
 end
 
 # vim: set ts=2 sw=2 et :
