@@ -63,17 +63,17 @@ class BrainFuck
     @memory = BrainFuck::Memory.new
     @operands = Array.new(256, nil)
 
-    @operands['+'.ord] = lambda { @memory.increment }
-    @operands['-'.ord] = lambda { @memory.decrement }
-    @operands['>'.ord] = lambda { @memory.forward   }
-    @operands['<'.ord] = lambda { @memory.backward  }
-    @operands[','.ord] = lambda { store_character   }
-    @operands['.'.ord] = lambda { print_character   }
+    @operands['+'.ord] = Proc.new { @memory.increment }
+    @operands['-'.ord] = Proc.new { @memory.decrement }
+    @operands['>'.ord] = Proc.new { @memory.forward   }
+    @operands['<'.ord] = Proc.new { @memory.backward  }
+    @operands[','.ord] = Proc.new { store_character   }
+    @operands['.'.ord] = Proc.new { print_character   }
 
-    @operands['['.ord] = lambda {
+    @operands['['.ord] = Proc.new {
       @pointer = @loops[@pointer] if @memory.retrieve == 0
     }
-    @operands[']'.ord] = lambda {
+    @operands[']'.ord] = Proc.new {
       @pointer = @loops[@pointer] - 1 if @memory.retrieve > 0
     }
 
