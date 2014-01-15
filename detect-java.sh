@@ -28,3 +28,7 @@ if ! /sbin/ldconfig -p | /bin/grep $java_library > /dev/null 2>&1 ; then
 fi
 
 export JAVA_HOME LD_LIBRARY_PATH
+
+if [ -d "${JAVA_HOME}\bin" ]; then
+    export PATH="${JAVA_HOME}\bin:${PATH}"
+fi
